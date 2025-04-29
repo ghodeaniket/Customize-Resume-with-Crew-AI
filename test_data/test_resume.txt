@@ -1,0 +1,34 @@
+John Doe
+Software Engineer
+
+Contact Information:
+Email: john.doe@example.com
+Phone: (555) 123-4567
+LinkedIn: linkedin.com/in/johndoe
+
+Summary:
+Experienced software engineer with 5+ years of experience in backend development
+specializing in Python, FastAPI, and cloud technologies. Passionate about building
+scalable and maintainable software solutions.
+
+Skills:
+- Languages: Python, JavaScript, SQL, TypeScript
+- Frameworks: FastAPI, Django, Flask, React
+- Cloud: AWS, Docker, Kubernetes
+- Databases: PostgreSQL, MongoDB
+- AI/ML: CrewAI, LangChain, TensorFlow
+
+Experience:
+Senior Software Engineer | TechCorp Inc. | 2022-Present
+- Developed and maintained microservices using FastAPI and Python
+- Implemented CI/CD pipelines reducing deployment time by 40%
+- Led a team of 3 developers in building a document processing system
+
+Software Engineer | Innovate Solutions | 2020-2022
+- Built RESTful APIs using Flask and PostgreSQL
+- Migrated monolithic application to microservices architecture
+- Optimized database queries resulting in 30% performance improvement
+
+Education:
+Bachelor of Science in Computer Science
+University of Technology, 2020

@@ -1,0 +1,39 @@
+Senior Backend Developer
+
+About Us:
+Our company is a leading software development firm specializing in AI-powered solutions for the finance industry. We're looking for a talented Senior Backend Developer to join our growing team.
+
+Responsibilities:
+- Design, develop, and maintain high-performance backend systems
+- Build RESTful APIs and microservices using Python
+- Collaborate with frontend developers and data scientists
+- Implement efficient database schemas and optimize queries
+- Participate in code reviews and mentor junior developers
+- Ensure code quality through proper testing and documentation
+
+Requirements:
+- 5+ years of experience in backend development
+- Strong proficiency in Python and at least one Python framework (Django, FastAPI, Flask)
+- Experience with database design and optimization (PostgreSQL preferred)
+- Knowledge of containerization technologies (Docker, Kubernetes)
+- Familiarity with cloud platforms (AWS, Azure, or GCP)
+- Experience with CI/CD pipelines and deployment automation
+- Strong problem-solving skills and attention to detail
+
+Nice to Have:
+- Experience with AI/ML technologies
+- Knowledge of financial systems and regulations
+- Experience with message brokers (Kafka, RabbitMQ)
+- Familiarity with TypeScript and Node.js
+- Open-source contributions
+
+Benefits:
+- Competitive salary
+- Flexible working hours
+- Remote work options
+- Health insurance
+- Professional development opportunities
+- Collaborative and innovative work environment
+
+Location: Remote (US time zones preferred)
+Employment Type: Full-time
