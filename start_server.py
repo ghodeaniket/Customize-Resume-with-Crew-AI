@@ -7,9 +7,39 @@ information about the available endpoints for testing.
 """
 import os
 import sys
-import uvicorn
+import importlib
 import webbrowser
 from pathlib import Path
+
+# Check required dependencies
+REQUIRED_PACKAGES = [
+    "uvicorn", "fastapi", "pydantic", "docx", "PyPDF2", "fitz", 
+    "loguru", "aiofiles", "crewai", "crewai_tools"
+]
+
+missing_packages = []
+for package in REQUIRED_PACKAGES:
+    try:
+        importlib.import_module(package)
+    except ImportError:
+        missing_packages.append(package)
+
+if missing_packages:
+    print("\n" + "!" * 80)
+    print("MISSING DEPENDENCIES".center(80))
+    print("!" * 80)
+    print("\nThe following required packages are missing:")
+    for pkg in missing_packages:
+        print(f"  - {pkg}")
+    print("\nPlease install the required dependencies using:")
+    print("\npip install -r requirements.txt")
+    print("\nor install them individually:")
+    print(f"\npip install {' '.join(missing_packages)}")
+    print("\n" + "!" * 80 + "\n")
+    sys.exit(1)
+
+# Import uvicorn after checking dependencies
+import uvicorn
 
 # Create required directories if they don't exist
 uploads_dir = Path("uploads")

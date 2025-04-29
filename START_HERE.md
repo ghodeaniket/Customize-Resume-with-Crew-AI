@@ -2,6 +2,28 @@
 
 This guide will help you start and test the Resume Customizer backend application.
 
+## Installation
+
+Before starting the server, make sure all required dependencies are installed:
+
+### Option 1: Using the installation script (Recommended)
+
+```bash
+python3 install_dependencies.py
+```
+
+### Option 2: Using pip with requirements.txt
+
+```bash
+pip install -r requirements.txt
+```
+
+### Option 3: Manual installation
+
+```bash
+pip install fastapi uvicorn pydantic pydantic-settings python-multipart crewai crewai-tools PyPDF2 pymupdf python-docx loguru aiofiles httpx asyncio
+```
+
 ## Starting the Server
 
 There are two ways to start the development server:
