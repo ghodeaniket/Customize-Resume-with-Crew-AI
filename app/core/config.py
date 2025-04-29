@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     
     # CrewAI settings
     DEFAULT_AGENT_LLM: str = "gpt-4"
+    MODEL: Optional[str] = None  # For CrewAI model override
     
     class Config:
         """Pydantic configuration."""

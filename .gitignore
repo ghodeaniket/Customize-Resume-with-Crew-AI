@@ -69,3 +69,4 @@ poetry.lock
 # Application specific
 *.db
 *.sqlite
+test_resume.txt
