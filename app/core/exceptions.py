@@ -32,3 +32,11 @@ class TaskNotFoundError(Exception):
     def __init__(self, task_id: str):
         self.detail = f"Task with ID {task_id} not found"
         super().__init__(self.detail)
+
+
+class CustomizationError(Exception):
+    """Raised when there's an error during resume customization."""
+    
+    def __init__(self, detail: str = "Error customizing resume"):
+        self.detail = detail
+        super().__init__(self.detail)

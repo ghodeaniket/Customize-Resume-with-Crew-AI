@@ -1,6 +1,7 @@
 """Document storage service for Resume Customizer."""
 import os
 import json
+import time
 import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any
@@ -222,6 +223,67 @@ class DocumentStorageService:
         
         logger.warning(f"Original document not found in task directory: {task_dir}")
         return None
+    
+    async def save_result(self, task_id: str, result: str) -> Path:
+        """Save task result to disk.
+        
+        Args:
+            task_id: Task identifier
+            result: Task result content
+            
+        Returns:
+            Path: Path to the saved result file
+            
+        Raises:
+            DocumentProcessingError: If saving fails
+        """
+        task_dir = self.base_path / task_id
+        task_dir.mkdir(exist_ok=True)
+        
+        result_path = task_dir / "result.txt"
+        
+        try:
+            async with aiofiles.open(result_path, "w", encoding="utf-8") as f:
+                await f.write(result)
+            
+            # Update metadata
+            metadata = await self.get_metadata(task_id)
+            metadata.update({
+                "result_path": str(result_path),
+                "result_size": len(result),
+                "result_created_at": time.time()
+            })
+            await self.save_metadata(task_id, metadata)
+            
+            logger.info(f"Saved task result to {result_path}, size: {len(result)} characters")
+            return result_path
+            
+        except Exception as e:
+            logger.error(f"Error saving task result: {str(e)}", exc_info=True)
+            raise DocumentProcessingError(detail=f"Error saving task result: {str(e)}")
+    
+    async def get_result(self, task_id: str) -> Optional[str]:
+        """Get task result for a task.
+        
+        Args:
+            task_id: Task identifier
+            
+        Returns:
+            Optional[str]: Task result if available
+        """
+        result_path = self.base_path / task_id / "result.txt"
+        
+        if not result_path.exists():
+            logger.warning(f"Result file does not exist: {result_path}")
+            return None
+        
+        try:
+            async with aiofiles.open(result_path, "r", encoding="utf-8") as f:
+                return await f.read()
+                
+        except Exception as e:
+            logger.error(f"Error reading task result: {str(e)}", exc_info=True)
+            return None
     
     async def list_tasks(self) -> List[Dict[str, Any]]:
         """List all tasks with their metadata.

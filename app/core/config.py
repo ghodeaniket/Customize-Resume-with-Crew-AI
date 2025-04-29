@@ -26,8 +26,12 @@ class Settings(BaseSettings):
     LLM_API_KEY: Optional[str] = None
     
     # CrewAI settings
-    DEFAULT_AGENT_LLM: str = "gpt-4"
-    MODEL: Optional[str] = None  # For CrewAI model override
+    AGENT_LLM: str = "gpt-4o"  # Default model for agents
+    AGENT_VERBOSE: bool = True  # Enable verbose output for agents
+    CREW_VERBOSE: bool = True   # Enable verbose output for crews
+    MEMORY_ENABLED: bool = True  # Enable memory for agents
+    MAX_EXECUTION_TIME: int = 300  # Maximum execution time in seconds
+    MAX_RPM: Optional[int] = None  # Maximum requests per minute (None = no limit)
     
     class Config:
         """Pydantic configuration."""

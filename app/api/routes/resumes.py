@@ -223,3 +223,181 @@ async def get_resume_text(
         "text": extracted_text,
         "metadata": metadata
     }
+
+
+@router.post("/customize", response_model=responses.CustomizationResponse)
+async def customize_resume(
+    request: requests.CustomizationRequest,
+    background_tasks: BackgroundTasks,
+    resume_service: ResumeService = Depends(get_resume_service),
+    task_service: TaskService = Depends(get_task_service)
+):
+    """Customize a resume based on a job description.
+    
+    This endpoint creates a customization task that tailors a previously 
+    uploaded resume to match the provided job description. The customization
+    is performed asynchronously, and the result can be retrieved using the
+    returned task ID.
+    
+    Args:
+        request: Customization request with resume ID and job description
+        background_tasks: FastAPI background tasks manager
+        resume_service: Resume service dependency
+        task_service: Task service dependency
+        
+    Returns:
+        CustomizationResponse: Response with task ID and status
+        
+    Raises:
+        HTTPException: If resume validation fails
+    """
+    # Validate resume ID
+    if not await resume_service.resume_exists(request.resume_id):
+        logger.warning(f"Resume not found: {request.resume_id}", extra={
+            "resume_id": request.resume_id,
+            "error": "resume_not_found"
+        })
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=f"Resume with ID {request.resume_id} not found"
+        )
+    
+    # Validate job description
+    if not request.job_description or len(request.job_description) < 10:
+        logger.warning("Job description too short", extra={
+            "error": "invalid_job_description",
+            "length": len(request.job_description) if request.job_description else 0
+        })
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Job description is too short or empty"
+        )
+    
+    # Create customization task
+    task = await task_service.create_task(
+        task_type="resume_customization",
+        related_id=request.resume_id
+    )
+    task_id = task["task_id"]
+    
+    # Start customization in background
+    background_tasks.add_task(
+        resume_service.customize_resume,
+        resume_id=request.resume_id,
+        job_description=request.job_description,
+        task_id=task_id,
+        customize_level=request.customize_level or "standard"
+    )
+    
+    logger.info(
+        f"Started resume customization: resume={request.resume_id}, "
+        f"task={task_id}, level={request.customize_level or 'standard'}", 
+        extra={
+            "resume_id": request.resume_id,
+            "task_id": task_id,
+            "customize_level": request.customize_level or "standard",
+            "job_description_length": len(request.job_description)
+        }
+    )
+    
+    return responses.CustomizationResponse(
+        task_id=task_id,
+        status="processing"
+    )
+
+
+@router.get("/customization/{task_id}", response_model=responses.TaskStatusResponse)
+async def get_customization_status(
+    task_id: str,
+    task_service: TaskService = Depends(get_task_service)
+):
+    """Get the status of a resume customization task.
+    
+    Args:
+        task_id: The task ID of the customization task
+        task_service: Task service dependency
+        
+    Returns:
+        TaskStatusResponse: Response with task status details
+        
+    Raises:
+        HTTPException: If the task is not found
+    """
+    task = await task_service.get_task(task_id)
+    
+    if not task:
+        logger.warning(f"Customization task not found: {task_id}", extra={
+            "task_id": task_id,
+            "error": "task_not_found"
+        })
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Customization task with ID {task_id} not found"
+        )
+    
+    status_value = task.get("status", "unknown")
+    progress = task.get("progress", 0.0)
+    created_at = task.get("created_at", "")
+    updated_at = task.get("updated_at", "")
+    
+    result_url = None
+    if status_value == "completed":
+        result_url = f"/api/resumes/customization/{task_id}/result"
+    
+    logger.info(f"Retrieved customization task status: {task_id}, status: {status_value}", extra={
+        "task_id": task_id,
+        "status": status_value,
+        "progress": progress
+    })
+    
+    return responses.TaskStatusResponse(
+        task_id=task_id,
+        status=status_value,
+        progress=progress,
+        created_at=created_at,
+        updated_at=updated_at,
+        result_url=result_url
+    )
+
+
+@router.get("/customization/{task_id}/result", response_model=dict)
+async def get_customization_result(
+    task_id: str,
+    resume_service: ResumeService = Depends(get_resume_service)
+):
+    """Get the result of a completed customization task.
+    
+    Args:
+        task_id: The task ID of the customization task
+        resume_service: Resume service dependency
+        
+    Returns:
+        dict: The customized resume text and metadata
+        
+    Raises:
+        HTTPException: If the task is not found or not completed
+    """
+    result = await resume_service.get_customization_result(task_id)
+    
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Customization task with ID {task_id} not found"
+        )
+    
+    if result.get("status") != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Customization is not complete. "
+                f"Current status: {result.get('status')}, "
+                f"Progress: {result.get('progress', 0)}%"
+            )
+        )
+    
+    logger.info(f"Retrieved customization result for task: {task_id}", extra={
+        "task_id": task_id,
+        "result_length": len(result.get("result", ""))
+    })
+    
+    return result
