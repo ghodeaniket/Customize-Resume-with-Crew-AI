@@ -11,34 +11,69 @@ import importlib
 import webbrowser
 from pathlib import Path
 
-# Check required dependencies
-REQUIRED_PACKAGES = [
-    "uvicorn", "fastapi", "pydantic", "docx", "PyPDF2", "fitz", 
-    "loguru", "aiofiles", "crewai", "crewai_tools"
-]
+# Define package names and their pip install names (if different)
+REQUIRED_PACKAGES = {
+    "uvicorn": "uvicorn",
+    "fastapi": "fastapi",
+    "pydantic": "pydantic",
+    "docx": "python-docx",
+    "PyPDF2": "PyPDF2", 
+    "fitz": "pymupdf",
+    "loguru": "loguru",
+    "aiofiles": "aiofiles",
+    "crewai": "crewai",
+    "crewai_tools": "crewai-tools"
+}
 
 missing_packages = []
-for package in REQUIRED_PACKAGES:
+for package_name, pip_name in REQUIRED_PACKAGES.items():
     try:
-        importlib.import_module(package)
+        importlib.import_module(package_name)
     except ImportError:
-        missing_packages.append(package)
+        missing_packages.append((package_name, pip_name))
 
 if missing_packages:
     print("\n" + "!" * 80)
-    print("MISSING DEPENDENCIES".center(80))
+    print("MISSING DEPENDENCIES DETECTED".center(80))
     print("!" * 80)
     print("\nThe following required packages are missing:")
-    for pkg in missing_packages:
-        print(f"  - {pkg}")
-    print("\nPlease install the required dependencies using:")
-    print("\npip install -r requirements.txt")
-    print("\nor install them individually:")
-    print(f"\npip install {' '.join(missing_packages)}")
-    print("\n" + "!" * 80 + "\n")
-    sys.exit(1)
+    for pkg_name, pip_name in missing_packages:
+        print(f"  - {pkg_name}")
+    
+    # Ask user if they want to install automatically
+    print("\nWould you like to install the missing dependencies automatically? (y/n)")
+    response = input("> ").strip().lower()
+    
+    if response in ('y', 'yes'):
+        print("\nInstalling missing dependencies...")
+        import subprocess
+        import sys
+        
+        # Determine pip command based on platform
+        pip_cmd = "pip3" if sys.platform != "win32" else "pip"
+        
+        # Install each missing package
+        for _, pip_name in missing_packages:
+            print(f"Installing {pip_name}...")
+            try:
+                subprocess.check_call([pip_cmd, "install", pip_name])
+                print(f"Successfully installed {pip_name}")
+            except subprocess.CalledProcessError:
+                print(f"Failed to install {pip_name}. Please install it manually.")
+                print(f"Run: {pip_cmd} install {pip_name}")
+                sys.exit(1)
+        
+        print("\nAll dependencies installed successfully!")
+    else:
+        print("\nPlease install the required dependencies manually using:")
+        print("\npip install -r requirements.txt")
+        print("\nor install them individually:")
+        pip_packages = [pip_name for _, pip_name in missing_packages]
+        print(f"\npip install {' '.join(pip_packages)}")
+        print("\n" + "!" * 80 + "\n")
+        sys.exit(1)
 
-# Import uvicorn after checking dependencies
+# Now all packages should be available
 import uvicorn
 
 # Create required directories if they don't exist
