@@ -1,4 +1,4 @@
-"""Task definition for resume optimization."""
+"""Fallback task definition for resume optimization."""
 from typing import Dict, Any, Optional
 
 from crewai import Agent, Task
@@ -6,27 +6,27 @@ from crewai import Agent, Task
 from app.core.logging import logger
 
 
-def create_resume_optimization_task(
+def create_resume_optimization_fallback_task(
     agent: Agent, 
     resume_text: str, 
-    job_analysis_result: str,
+    job_description_text: str,
     customize_level: str = "standard"
 ) -> Task:
-    """Create a task for optimizing a resume based on job analysis.
+    """Create a fallback task for optimizing a resume based on job description.
     
-    This task is responsible for tailoring the resume content to match
-    the requirements identified in the job description analysis.
+    This task is a simplified version that doesn't rely on job analysis results.
+    It works directly with the job description text instead.
     
     Args:
         agent: The agent assigned to the task
         resume_text: The original resume text
-        job_analysis_result: The result of the job analysis task
+        job_description_text: The original job description text
         customize_level: The level of customization to apply (minimal, standard, comprehensive)
         
     Returns:
-        Task: Configured resume optimization task
+        Task: Configured resume optimization fallback task
     """
-    logger.info(f"Creating resume optimization task with {customize_level} customization level")
+    logger.info(f"Creating fallback resume optimization task with {customize_level} customization level")
     
     # Define customization levels
     customization_guidance = {
@@ -53,20 +53,19 @@ def create_resume_optimization_task(
     )
     
     task_description = (
-        f"Using the original resume text and the job analysis results, "
-        f"create a tailored resume that highlights the most relevant skills "
-        f"and experiences for this specific job opportunity.\n\n"
+        f"You are tasked with customizing a resume to match a specific job description.\n\n"
         f"ORIGINAL RESUME:\n{resume_text}\n\n"
-        f"JOB ANALYSIS RESULTS:\n{job_analysis_result}\n\n"
+        f"JOB DESCRIPTION:\n{job_description_text}\n\n"
         f"CUSTOMIZATION LEVEL: {customize_level}\n{level_guidance}\n\n"
         f"Your task is to:\n"
-        f"1. Identify the most relevant parts of the resume that match job requirements\n"
-        f"2. Highlight key skills and experiences that align with the job description\n"
-        f"3. Add relevant keywords from the job description where appropriate\n"
-        f"4. Reorganize content to prioritize the most relevant information\n"
-        f"5. Adjust language to better match the terminology in the job description\n"
-        f"6. Ensure the resume will pass ATS screening systems\n"
-        f"7. Remove or downplay less relevant information\n\n"
+        f"1. Analyze the job description to identify key requirements, skills, and qualifications\n"
+        f"2. Review the resume to find relevant experience and skills\n"
+        f"3. Create a tailored version of the resume that highlights aspects that match the job description\n"
+        f"4. Add relevant keywords from the job description where appropriate\n"
+        f"5. Reorganize content to prioritize the most relevant information\n"
+        f"6. Adjust language to better match the terminology in the job description\n"
+        f"7. Ensure the resume will pass ATS screening systems\n"
+        f"8. Remove or downplay less relevant information\n\n"
         f"IMPORTANT: Maintain absolute factual accuracy - do not invent experiences, "
         f"skills, or qualifications that are not present in the original resume."
     )
@@ -78,9 +77,7 @@ def create_resume_optimization_task(
         "presenting it in the most compelling way for this opportunity."
     )
     
-    # Create the task with direct inputs to ensure they're accessible
-    # Don't include the job_analysis_result directly in context
-    # Instead, it's already incorporated into the task description
+    # Create the simplified task
     return Task(
         description=task_description,
         expected_output=expected_output,

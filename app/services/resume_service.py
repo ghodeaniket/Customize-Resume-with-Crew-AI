@@ -236,21 +236,38 @@ class ResumeService:
             llm = LLM(api_key=api_key, model=model_name)
             logger.info(f"Initialized LLM with model: {model_name}")
             
-            # Create the function-based tools with service reference
-            from app.crews.tools.resume_processor import process_resume_tool, job_matcher_tool
-            
-            # Bind the resume service to the tool
-            def process_resume_with_service(task_id: str) -> Dict[str, Any]:
-                return process_resume_tool(task_id, resume_service=self)
+            # Try with class-based tools first (more compatible with some CrewAI versions)
+            try:
+                from app.crews.tools.resume_processor import ResumeProcessorTool, JobMatcherTool
+                
+                # Create class-based tool instances
+                resume_processor_tool = ResumeProcessorTool(resume_service=self)
+                job_matcher_tool = JobMatcherTool() 
+                
+                logger.info("Created class-based tools for CrewAI integration")
+                tools_to_use = [resume_processor_tool, job_matcher_tool]
+                
+            except Exception as tool_error:
+                # Fallback to function-based tools if class-based tools fail
+                logger.warning(f"Class-based tools failed: {str(tool_error)}, falling back to function-based tools")
+                
+                from app.crews.tools.resume_processor import create_resume_processor_tool, create_job_matcher_tool
+                
+                # Create function-based tool instances
+                resume_processor = create_resume_processor_tool(self)
+                job_matcher = create_job_matcher_tool()
+                
+                logger.info(f"Created function-based tools: {type(resume_processor)}, {type(job_matcher)}")
+                tools_to_use = [resume_processor, job_matcher]
             
             # Create agents with explicit LLM and tools
             analyzer_agent = create_resume_analyzer_agent(
-                tools=[process_resume_with_service, job_matcher_tool]
+                tools=tools_to_use
             )
             analyzer_agent.llm = llm  # Explicitly set the LLM
             
             optimizer_agent = create_resume_optimizer_agent(
-                tools=[process_resume_with_service, job_matcher_tool]
+                tools=tools_to_use
             )
             optimizer_agent.llm = llm  # Explicitly set the LLM
             
@@ -284,25 +301,54 @@ class ResumeService:
                 process=Process.sequential
             )
             
-            # Execute job analysis
-            job_analysis_result = await self._run_job_analysis(crew)
-            
-            # Update progress
-            await self.task_service.update_task(
-                task_id=task_id, 
-                status="processing", 
-                progress=60.0,
-                message="Job analysis completed, optimizing resume"
-            )
-            
-            # Create and execute resume optimization task
-            optimized_resume = await self._run_resume_optimization(
-                crew=crew,
-                optimizer_agent=optimizer_agent,
-                resume_text=resume_text,
-                job_analysis_result=job_analysis_result,
-                customize_level=customize_level
-            )
+            try:
+                # Execute job analysis
+                job_analysis_result = await self._run_job_analysis(crew)
+                
+                # Log the job analysis result for debugging (truncated)
+                result_preview = str(job_analysis_result)[:200] + "..." if len(str(job_analysis_result)) > 200 else str(job_analysis_result)
+                logger.info(f"Job analysis result type: {type(job_analysis_result)}, preview: {result_preview}")
+                
+                # Update progress
+                await self.task_service.update_task(
+                    task_id=task_id, 
+                    status="processing", 
+                    progress=60.0,
+                    message="Job analysis completed, optimizing resume"
+                )
+                
+                # Create and execute resume optimization task
+                optimized_resume = await self._run_resume_optimization(
+                    crew=crew,
+                    optimizer_agent=optimizer_agent,
+                    resume_text=resume_text,
+                    job_analysis_result=job_analysis_result,
+                    customize_level=customize_level
+                )
+            except AttributeError as e:
+                if "'str' object has no attribute 'get'" in str(e):
+                    # Special handling for this specific error with a workaround
+                    logger.warning("Handling AttributeError with job analysis result")
+                    
+                    # Update progress despite the error
+                    await self.task_service.update_task(
+                        task_id=task_id, 
+                        status="processing", 
+                        progress=60.0,
+                        message="Job analysis completed with formatting issues, optimizing resume"
+                    )
+                    
+                    # Create a simplified optimization task without the problematic context
+                    optimized_resume = await self._run_resume_optimization_fallback(
+                        crew=crew,
+                        optimizer_agent=optimizer_agent,
+                        resume_text=resume_text,
+                        job_description_text=job_description,  # Use original job description
+                        customize_level=customize_level
+                    )
+                else:
+                    # Re-raise if it's not the specific error we're handling
+                    raise
             
             # Store the result
             await self.storage_service.save_result(task_id, optimized_resume)
@@ -502,6 +548,9 @@ class ResumeService:
         """
         logger.info(f"Running resume optimization with customize level: {customize_level}")
         try:
+            # Import the task creation function
+            from app.crews.tasks.optimize_resume import create_resume_optimization_task
+            
             # Create and add the optimization task
             optimization_task = create_resume_optimization_task(
                 agent=optimizer_agent,
@@ -532,6 +581,65 @@ class ResumeService:
         except Exception as e:
             logger.error(f"Error during resume optimization: {str(e)}", exc_info=True)
             raise CustomizationError(f"Resume optimization failed: {str(e)}")
+    
+    async def _run_resume_optimization_fallback(
+        self,
+        crew: Crew,
+        optimizer_agent: Any,
+        resume_text: str,
+        job_description_text: str,
+        customize_level: str
+    ) -> str:
+        """Run resume optimization with a fallback approach that doesn't rely on job analysis.
+        
+        This method is used when the standard approach fails, typically due to
+        formatting issues with the job analysis result.
+        
+        Args:
+            crew: The CrewAI crew instance
+            optimizer_agent: The resume optimizer agent
+            resume_text: The original resume text
+            job_description_text: The original job description text
+            customize_level: The level of customization
+            
+        Returns:
+            str: Optimized resume text
+        """
+        logger.info(f"Running FALLBACK resume optimization with customize level: {customize_level}")
+        try:
+            # Import the fallback task creation function
+            from app.crews.tasks.optimize_resume_fallback import create_resume_optimization_fallback_task
+            
+            # Create the fallback optimization task
+            fallback_task = create_resume_optimization_fallback_task(
+                agent=optimizer_agent,
+                resume_text=resume_text,
+                job_description_text=job_description_text,
+                customize_level=customize_level
+            )
+            
+            # Replace crew tasks with the fallback task
+            crew.tasks = [fallback_task]
+            
+            # Run the optimization task
+            logger.info("Kicking off fallback resume optimization crew")
+            crew_output = crew.kickoff()
+            logger.info(f"Received fallback optimization crew output type: {type(crew_output)}")
+            
+            # Extract the result
+            result = self._extract_crew_result(crew_output)
+            
+            if result:
+                logger.info("Fallback resume optimization completed successfully")
+                return result
+            else:
+                # If we couldn't extract a result, return the string representation
+                logger.warning("Could not extract structured output from fallback optimization, returning string representation")
+                return str(crew_output)
+            
+        except Exception as e:
+            logger.error(f"Error during fallback resume optimization: {str(e)}", exc_info=True)
+            raise CustomizationError(f"Fallback resume optimization failed: {str(e)}")
     
     async def get_customization_result(self, task_id: str) -> Optional[Dict[str, Any]]:
         """Get customization result by task ID.
