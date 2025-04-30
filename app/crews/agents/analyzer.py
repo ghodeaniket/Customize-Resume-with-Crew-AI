@@ -1,14 +1,15 @@
 """Resume analysis agent for extracting key information from resumes and job descriptions."""
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
+import os
 
-from crewai import Agent
-from crewai_tools import BaseTool
+from crewai import Agent, LLM
+from crewai.tools import BaseTool  # Import from crewai.tools instead of crewai_tools
 
 from app.core.config import settings
 from app.core.logging import logger
 
 
-def create_resume_analyzer_agent(tools: Optional[List[BaseTool]] = None) -> Agent:
+def create_resume_analyzer_agent(tools: Optional[List[Any]] = None) -> Agent:
     """Create an agent for analyzing resumes and job descriptions.
     
     The analyzer agent is responsible for:
@@ -34,6 +35,18 @@ def create_resume_analyzer_agent(tools: Optional[List[BaseTool]] = None) -> Agen
         "implicit requirements in job postings."
     )
     
+    # Get API key from environment or settings
+    api_key = os.environ.get("OPENAI_API_KEY") or settings.OPENAI_API_KEY or settings.LLM_API_KEY
+    if not api_key:
+        logger.warning("No API key found for LLM in analyzer agent")
+    
+    # Get model name from settings or default
+    model_name = settings.AGENT_LLM or "gpt-4o"
+    
+    # Create LLM instance with explicit parameters
+    llm = LLM(api_key=api_key, model=model_name)
+    logger.info(f"Created LLM instance for analyzer agent with model: {model_name}")
+    
     return Agent(
         role="Resume Analyzer",
         goal=(
@@ -43,5 +56,6 @@ def create_resume_analyzer_agent(tools: Optional[List[BaseTool]] = None) -> Agen
         backstory=backstory,
         tools=tools or [],
         verbose=settings.AGENT_VERBOSE,
-        llm=settings.AGENT_LLM
+        llm=llm,  # Pass explicit LLM instance
+        allow_delegation=False  # Disable delegation to simplify flow
     )

@@ -1,14 +1,15 @@
 """Resume optimization agent for customizing resumes to match job requirements."""
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
+import os
 
-from crewai import Agent
-from crewai_tools import BaseTool
+from crewai import Agent, LLM
+from crewai.tools import BaseTool  # Import from crewai.tools instead of crewai_tools
 
 from app.core.config import settings
 from app.core.logging import logger
 
 
-def create_resume_optimizer_agent(tools: Optional[List[BaseTool]] = None) -> Agent:
+def create_resume_optimizer_agent(tools: Optional[List[Any]] = None) -> Agent:
     """Create an agent for optimizing resumes based on job descriptions.
     
     The optimizer agent is responsible for:
@@ -36,6 +37,27 @@ def create_resume_optimizer_agent(tools: Optional[List[BaseTool]] = None) -> Age
         "how to structure information to catch their attention."
     )
     
+    # Get API key from environment or settings
+    api_key = os.environ.get("OPENAI_API_KEY") or settings.OPENAI_API_KEY or settings.LLM_API_KEY
+    if not api_key:
+        logger.warning("No API key found for LLM in optimizer agent")
+    
+    # Get model name from settings or default
+    model_name = settings.AGENT_LLM or "gpt-4o"
+    
+    # Create LLM instance with explicit parameters
+    llm = LLM(api_key=api_key, model=model_name)
+    logger.info(f"Created LLM instance for optimizer agent with model: {model_name}")
+    
+    # Set memory config
+    memory_enabled = settings.MEMORY_ENABLED if hasattr(settings, 'MEMORY_ENABLED') else True
+    memory_config = None
+    if memory_enabled:
+        memory_config = {
+            "max_tokens": 8000,  # Reasonable token limit
+            "importance_threshold": 0.6  # Only retain important information
+        }
+    
     return Agent(
         role="Resume Optimizer",
         goal=(
@@ -45,6 +67,8 @@ def create_resume_optimizer_agent(tools: Optional[List[BaseTool]] = None) -> Age
         backstory=backstory,
         tools=tools or [],
         verbose=settings.AGENT_VERBOSE,
-        llm=settings.AGENT_LLM,
-        memory=True  # Enable memory for the optimizer to remember previous customizations
+        llm=llm,  # Pass explicit LLM instance
+        memory=memory_enabled,  # Enable memory for the optimizer
+        memory_config=memory_config,  # Configure memory parameters
+        allow_delegation=False  # Disable delegation to simplify flow
     )

@@ -33,6 +33,53 @@ app.include_router(resumes.router)
 async def startup_event():
     """Execute actions on application startup."""
     logger.info("Starting Resume Customizer API")
+    
+    # Validate environment
+    from app.core.config import validate_environment
+    validation_results = validate_environment()
+    
+    # Log validation results
+    if validation_results["all_validated"]:
+        logger.info("Environment validation passed")
+    else:
+        logger.warning("Environment validation failed - some functionality may be limited")
+        
+        # Log specific issues
+        if not validation_results.get("has_llm_api_key"):
+            logger.warning("LLM API key not found - AI customization features will not work")
+            logger.warning("Set OPENAI_API_KEY or LLM_API_KEY in the environment or .env file")
+        
+        if not validation_results.get("uploads_dir_exists"):
+            logger.warning("Uploads directory does not exist - document processing may fail")
+    
+    # Initialize CrewAI environment
+    _initialize_crewai_environment()
+    
+def _initialize_crewai_environment():
+    """Initialize CrewAI environment variables."""
+    import os
+    import sys
+    
+    # Set environment variables for CrewAI
+    os.environ["AGENT_VERBOSE"] = str(settings.AGENT_VERBOSE).lower()
+    os.environ["CREW_VERBOSE"] = str(settings.CREW_VERBOSE).lower()
+    
+    # Forward any API keys to environment
+    if settings.OPENAI_API_KEY:
+        os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
+        logger.debug("Set OPENAI_API_KEY from settings")
+    
+    if settings.LLM_API_KEY:
+        os.environ["LLM_API_KEY"] = settings.LLM_API_KEY
+        logger.debug("Set LLM_API_KEY from settings")
+    
+    if settings.AGENT_LLM:
+        os.environ["AGENT_LLM"] = settings.AGENT_LLM
+        logger.debug(f"Set AGENT_LLM from settings: {settings.AGENT_LLM}")
+    
+    # Log Python version
+    logger.info(f"Python version: {sys.version}")
+    logger.info(f"Working directory: {os.getcwd()}")
 
 
 @app.on_event("shutdown")

@@ -3,7 +3,8 @@ import uuid
 from fastapi import APIRouter, Depends, File, UploadFile, BackgroundTasks, HTTPException, status
 from fastapi.responses import JSONResponse
 
-from app.api.dependencies import get_document_processor, get_resume_service, get_document_storage_service
+from app.api.dependencies import get_document_processor, get_resume_service, get_document_storage_service, get_task_service
+from app.services.task_service import TaskService
 from app.core.exceptions import DocumentProcessingError, UnsupportedFileTypeError
 from app.core.logging import logger
 from app.core.utils.file_detection import is_supported_file_type

@@ -78,9 +78,12 @@ def create_resume_optimization_task(
         "presenting it in the most compelling way for this opportunity."
     )
     
+    # Create the task with direct inputs to ensure they're accessible
     return Task(
         description=task_description,
         expected_output=expected_output,
         agent=agent,
-        context=[job_analysis_result]  # Provide the job analysis as context
+        context=[job_analysis_result, resume_text],  # Provide both job analysis and resume text as context
+        async_execution=False,  # Disable async execution to simplify debugging
+        output_file=None  # Don't write to file automatically, we'll handle storage
     )

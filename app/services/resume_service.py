@@ -3,7 +3,7 @@ import time
 from typing import Dict, Optional, Any, BinaryIO, List
 from pathlib import Path
 
-from crewai import Crew, Process
+from crewai import Crew, Process, LLM
 from fastapi import UploadFile, BackgroundTasks
 
 from app.core.logging import logger
@@ -219,17 +219,40 @@ class ResumeService:
                 message="Retrieved resume text"
             )
             
-            # Create CrewAI tools
-            resume_processor_tool = ResumeProcessorTool(resume_service=self)
-            job_matcher_tool = JobMatcherTool()
+            # Set environment variables for LLM API keys
+            self._setup_llm_environment()
             
-            # Create agents
+            # Create LLM instance with API key and model
+            api_key = settings.LLM_API_KEY or settings.OPENAI_API_KEY
+            if not api_key:
+                raise CustomizationError("No LLM API key configured")
+            
+            model_name = settings.AGENT_LLM
+            if not model_name:
+                model_name = "gpt-4o" # Default to a reasonable model if not specified
+                logger.warning(f"No LLM model specified, using default: {model_name}")
+            
+            # Initialize LLM with explicit parameters
+            llm = LLM(api_key=api_key, model=model_name)
+            logger.info(f"Initialized LLM with model: {model_name}")
+            
+            # Create the function-based tools with service reference
+            from app.crews.tools.resume_processor import process_resume_tool, job_matcher_tool
+            
+            # Bind the resume service to the tool
+            def process_resume_with_service(task_id: str) -> Dict[str, Any]:
+                return process_resume_tool(task_id, resume_service=self)
+            
+            # Create agents with explicit LLM and tools
             analyzer_agent = create_resume_analyzer_agent(
-                tools=[resume_processor_tool, job_matcher_tool]
+                tools=[process_resume_with_service, job_matcher_tool]
             )
+            analyzer_agent.llm = llm  # Explicitly set the LLM
+            
             optimizer_agent = create_resume_optimizer_agent(
-                tools=[resume_processor_tool, job_matcher_tool]
+                tools=[process_resume_with_service, job_matcher_tool]
             )
+            optimizer_agent.llm = llm  # Explicitly set the LLM
             
             # Update progress
             await self.task_service.update_task(
@@ -253,7 +276,7 @@ class ResumeService:
                 message="Analyzing job description"
             )
             
-            # Create crew
+            # Create crew with explicit verbose setting and process
             crew = Crew(
                 agents=[analyzer_agent, optimizer_agent],
                 tasks=[job_analysis_task],
@@ -303,20 +326,74 @@ class ResumeService:
             return task_id
             
         except Exception as e:
-            # Handle errors
-            error_message = f"Resume customization failed: {str(e)}"
-            logger.error(error_message, exc_info=True)
-            
-            # Update task status to failed
-            await self.task_service.update_task(
-                task_id=task_id,
-                status="failed",
-                progress=100.0,
-                error=str(e),
-                processing_time_ms=(time.time() - start_time) * 1000
-            )
-            
-            raise CustomizationError(error_message)
+            # Handle specific error types
+            if "api_key" in str(e).lower() or "authentication" in str(e).lower():
+                error_message = f"LLM API authentication failed: {str(e)}"
+                logger.error(error_message, exc_info=True)
+                await self.task_service.update_task(
+                    task_id=task_id,
+                    status="failed",
+                    progress=100.0,
+                    error="API key authentication failed. Please check your API key configuration.",
+                    processing_time_ms=(time.time() - start_time) * 1000
+                )
+                raise CustomizationError("API key authentication failed. Please check your API key configuration.")
+            else:
+                # Handle general errors
+                error_message = f"Resume customization failed: {str(e)}"
+                logger.error(error_message, exc_info=True)
+                
+                # Update task status to failed
+                await self.task_service.update_task(
+                    task_id=task_id,
+                    status="failed",
+                    progress=100.0,
+                    error=str(e),
+                    processing_time_ms=(time.time() - start_time) * 1000
+                )
+                
+                raise CustomizationError(error_message)
+    
+    def _setup_llm_environment(self) -> None:
+        """Set up environment variables for LLM API keys.
+        
+        This method ensures that API keys are properly set in the environment
+        for CrewAI components to access them.
+        """
+        import os
+        
+        # Explicitly set API keys in environment variables to ensure they're available to CrewAI
+        # First, check if API keys are in settings
+        llm_api_key = settings.LLM_API_KEY
+        openai_api_key = settings.OPENAI_API_KEY
+        
+        # Log environment status without exposing keys
+        logger.info(f"Setting up LLM environment. LLM_API_KEY exists: {bool(llm_api_key)}, OPENAI_API_KEY exists: {bool(openai_api_key)}")
+        
+        # Set environment variables if they exist in settings
+        if llm_api_key:
+            os.environ["LLM_API_KEY"] = llm_api_key
+            logger.debug("Set LLM_API_KEY in environment")
+        
+        if openai_api_key:
+            os.environ["OPENAI_API_KEY"] = openai_api_key
+            logger.debug("Set OPENAI_API_KEY in environment")
+        
+        # Validate that we have at least one API key
+        if not (llm_api_key or openai_api_key):
+            logger.error("No API keys found in settings or environment")
+            raise CustomizationError("No LLM API keys configured. Please set LLM_API_KEY or OPENAI_API_KEY.")
+        
+        # Set LLM model in environment if specified
+        if settings.AGENT_LLM:
+            os.environ["AGENT_LLM"] = settings.AGENT_LLM
+            logger.debug(f"Set AGENT_LLM in environment: {settings.AGENT_LLM}")
+        
+        # Set AGENT_VERBOSE if specified
+        os.environ["AGENT_VERBOSE"] = str(settings.AGENT_VERBOSE).lower()
+        os.environ["CREW_VERBOSE"] = str(settings.CREW_VERBOSE).lower()
+        
+        logger.info("LLM environment setup complete")
     
     async def _run_job_analysis(self, crew: Crew) -> str:
         """Run job analysis task with the crew.
@@ -330,12 +407,78 @@ class ResumeService:
         logger.info("Running job analysis with CrewAI")
         try:
             # Run first task (job analysis)
-            job_analysis_result = crew.kickoff()[0]
-            logger.info("Job analysis completed successfully")
-            return job_analysis_result
+            logger.info("Kicking off job analysis crew")
+            crew_output = crew.kickoff()
+            logger.info(f"Received crew output type: {type(crew_output)}")
+            
+            # Extract the result using different approaches
+            result = self._extract_crew_result(crew_output)
+            
+            if result:
+                logger.info("Job analysis completed successfully")
+                return result
+            else:
+                # If we couldn't extract a result, return the string representation
+                logger.warning("Could not extract structured output, returning string representation")
+                return str(crew_output)
+            
         except Exception as e:
             logger.error(f"Error during job analysis: {str(e)}", exc_info=True)
             raise CustomizationError(f"Job analysis failed: {str(e)}")
+    
+    def _extract_crew_result(self, crew_output: Any) -> str:
+        """Extract the result string from different CrewAI output formats.
+        
+        Args:
+            crew_output: The output from crew.kickoff()
+            
+        Returns:
+            str: Extracted result text or empty string if extraction fails
+        """
+        # Try different methods to extract the result
+        extraction_methods = [
+            # Method 1: Access as tasks[0].output.raw
+            lambda x: x.tasks[0].output.raw if hasattr(x, 'tasks') and x.tasks and hasattr(x.tasks[0], 'output') and hasattr(x.tasks[0].output, 'raw') else None,
+            
+            # Method 2: Access as task_output
+            lambda x: x.task_output if hasattr(x, 'task_output') else None,
+            
+            # Method 3: Access as raw
+            lambda x: x.raw if hasattr(x, 'raw') else None,
+            
+            # Method 4: Access as output
+            lambda x: x.output if hasattr(x, 'output') else None,
+            
+            # Method 5: Access as result
+            lambda x: x.result if hasattr(x, 'result') else None,
+            
+            # Method 6: Convert to dict and stringify
+            lambda x: str(x.to_dict()) if hasattr(x, 'to_dict') else None,
+            
+            # Method 7: Check for getattr with specific attributes
+            lambda x: getattr(x, 'content', None),
+            
+            # Method 8: Access first element if it's a list
+            lambda x: x[0] if isinstance(x, list) and len(x) > 0 else None,
+            
+            # Method 9: Try __str__ method
+            lambda x: str(x)
+        ]
+        
+        # Try each method and return the first successful result
+        for i, method in enumerate(extraction_methods):
+            try:
+                result = method(crew_output)
+                if result:
+                    logger.info(f"Successfully extracted result using method {i+1}")
+                    return result
+            except (AttributeError, IndexError, TypeError) as e:
+                logger.debug(f"Extraction method {i+1} failed: {str(e)}")
+                continue
+        
+        # If all methods fail, return an empty string
+        logger.warning("All extraction methods failed")
+        return ""
     
     async def _run_resume_optimization(
         self,
@@ -371,9 +514,21 @@ class ResumeService:
             crew.tasks = [optimization_task]
             
             # Run the optimization task
-            optimized_resume = crew.kickoff()[0]
-            logger.info("Resume optimization completed successfully")
-            return optimized_resume
+            logger.info("Kicking off resume optimization crew")
+            crew_output = crew.kickoff()
+            logger.info(f"Received optimization crew output type: {type(crew_output)}")
+            
+            # Extract the result using our helper method
+            result = self._extract_crew_result(crew_output)
+            
+            if result:
+                logger.info("Resume optimization completed successfully")
+                return result
+            else:
+                # If we couldn't extract a result, return the string representation
+                logger.warning("Could not extract structured output from optimization, returning string representation")
+                return str(crew_output)
+            
         except Exception as e:
             logger.error(f"Error during resume optimization: {str(e)}", exc_info=True)
             raise CustomizationError(f"Resume optimization failed: {str(e)}")
