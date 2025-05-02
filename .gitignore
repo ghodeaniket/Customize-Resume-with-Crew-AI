@@ -70,3 +70,4 @@ poetry.lock
 *.db
 *.sqlite
 test_resume.txt
+resume_customizer_env/
