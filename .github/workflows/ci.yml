@@ -24,8 +24,10 @@ jobs:
         version: 1.7.0
         
     - name: Install dependencies
-      run: poetry install
-      
+      run: |
+        poetry install
+        poetry run pip install locust
+        
     - name: Lint with pylint
       run: poetry run pylint app tests
       
@@ -35,10 +37,53 @@ jobs:
     - name: Import sort check with isort
       run: poetry run isort --check .
       
-    - name: Test with pytest
+    - name: Generate test files
+      run: |
+        poetry run python create_test_pdf.py
+        poetry run python create_test_docx.py
+      
+    - name: Run unit tests
+      run: poetry run pytest tests/unit --cov=app/
+      
+    - name: Run integration tests
+      run: poetry run pytest tests/integration --cov=app/ --cov-append
+      
+    - name: Run contract tests
+      run: poetry run pytest tests/contract --cov=app/ --cov-append
+      
+    - name: Generate coverage report
       run: poetry run pytest --cov=app --cov-report=xml
       
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.xml
+        
+    - name: Generate API contract documentation
+      run: |
+        mkdir -p docs
+        poetry run python tests/contract/generate_contract_docs.py
+        
+    - name: Run performance tests (minimal)
+      run: |
+        # Start the server in the background
+        poetry run python start_server.py &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        sleep 5
+        
+        # Run minimal performance tests
+        poetry run python tests/performance/run_performance_tests.py --users 5 --spawn-rate 2 --run-time 30s --host http://localhost:8000
+        
+        # Stop the server
+        kill $SERVER_PID
+      
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          test_results/
+          docs/api_contracts.md
+          coverage.xml

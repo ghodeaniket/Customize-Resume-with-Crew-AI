@@ -33,6 +33,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+coverage_html/
 
 # Environments
 .env
@@ -71,3 +72,11 @@ poetry.lock
 *.sqlite
 test_resume.txt
 resume_customizer_env/
+
+# Test data
+test_data/test_resume.pdf
+test_data/test_resume.docx
+
+# Test results
+test_results/
+locust_stats*
