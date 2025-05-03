@@ -1,1 +1,4 @@
-"""API routes for the Resume Customizer application."""
+"""API routes module."""
+from . import health, resumes, batch
+
+__all__ = ["health", "resumes", "batch"]

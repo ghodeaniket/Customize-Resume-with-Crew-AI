@@ -13,6 +13,6 @@ aiofiles>=24.1.0
 httpx>=0.25.1
 # asyncio is now part of Python's standard library, no need to include it
 websockets>=15.0.0
-python-magic>=0.4.27ddgdfg
+python-magic>=0.4.27
 # uuid is part of Python's standard library, use that instead of the package
 # If you need enhanced performance, consider uuid-utils>=0.10.0

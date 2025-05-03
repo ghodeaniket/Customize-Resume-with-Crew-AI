@@ -1,9 +1,10 @@
-"""Main application entry point."""
+"""Main application entry point with API versioning."""
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, resumes
+from app.api.api_v1.api import api_router as v1_router
+from app.api.middleware.error_handler import ErrorHandlerMiddleware
 from app.core.config import settings
 from app.core.logging import logger
 
@@ -11,9 +12,15 @@ from app.core.logging import logger
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Resume Customizer API - Tailor your resume to specific job descriptions",
-    version="0.1.0",
+    version="1.0.0",
     debug=settings.DEBUG,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
 )
+
+# Add custom error handling middleware
+app.add_middleware(ErrorHandlerMiddleware)
 
 # Configure CORS
 app.add_middleware(
@@ -24,9 +31,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(health.router)
-app.include_router(resumes.router)
+# Include API v1 router with version prefix
+app.include_router(v1_router, prefix="/api/v1")
+
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint to verify API is running."""
+    return {
+        "message": "Resume Customizer API",
+        "version": "1.0.0",
+        "docs": "/api/docs",
+        "health": "/api/v1/health"
+    }
 
 
 @app.on_event("startup")
@@ -55,6 +72,10 @@ async def startup_event():
     # Initialize CrewAI environment
     _initialize_crewai_environment()
     
+    logger.info(f"API docs available at: /api/docs")
+    logger.info(f"API v1 available at: /api/v1")
+    
+
 def _initialize_crewai_environment():
     """Initialize CrewAI environment variables."""
     import os
@@ -65,15 +86,15 @@ def _initialize_crewai_environment():
     os.environ["CREW_VERBOSE"] = str(settings.CREW_VERBOSE).lower()
     
     # Forward any API keys to environment
-    if settings.OPENAI_API_KEY:
+    if hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY:
         os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
         logger.debug("Set OPENAI_API_KEY from settings")
     
-    if settings.LLM_API_KEY:
+    if hasattr(settings, 'LLM_API_KEY') and settings.LLM_API_KEY:
         os.environ["LLM_API_KEY"] = settings.LLM_API_KEY
         logger.debug("Set LLM_API_KEY from settings")
     
-    if settings.AGENT_LLM:
+    if hasattr(settings, 'AGENT_LLM') and settings.AGENT_LLM:
         os.environ["AGENT_LLM"] = settings.AGENT_LLM
         logger.debug(f"Set AGENT_LLM from settings: {settings.AGENT_LLM}")
     
@@ -90,4 +111,9 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     """Run the application using uvicorn."""
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=int(settings.PORT) if hasattr(settings, 'PORT') else 8000, 
+        reload=settings.DEBUG if hasattr(settings, 'DEBUG') else False
+    )
