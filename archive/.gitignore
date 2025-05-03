@@ -1,0 +1,3 @@
+# Ignore all files in the refactoring_backups directory
+refactoring_backups/*
+!refactoring_backups/README.md
