@@ -7,12 +7,11 @@ from typing import Dict, List, Optional, Any
 import aiofiles
 
 from app.core.logging import logger
-from app.repositories.document_repository import DocumentRepository
 from app.repositories.filesystem.base_repository import FileSystemBaseRepository
 from app.repositories.filesystem.document_storage_repository import DocumentStorageRepository
 
 
-class DocumentMetadataRepository(DocumentRepository, FileSystemBaseRepository):
+class DocumentMetadataRepository(FileSystemBaseRepository):
     """Repository for managing document metadata operations."""
     
     def __init__(self, base_path: str):

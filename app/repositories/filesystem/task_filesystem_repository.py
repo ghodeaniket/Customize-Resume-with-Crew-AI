@@ -13,12 +13,23 @@ class FileSystemTaskRepository(TaskRepository):
     combining operations and query functionality.
     """
     
-    def __init__(self, base_path: str):
+    def __init__(self, document_repository: Any = None, base_path: str = None):
         """Initialize file system task repository.
         
         Args:
-            base_path: Base directory for storage
+            document_repository: Document repository (optional for compatibility)
+            base_path: Base directory for storage (used if document_repository not provided)
         """
+        # If document_repository is provided, use its base_path
+        if document_repository and hasattr(document_repository, 'base_path'):
+            base_path = str(document_repository.base_path)
+        elif document_repository and hasattr(document_repository, 'metadata_repo') and hasattr(document_repository.metadata_repo, 'base_path'):
+            base_path = str(document_repository.metadata_repo.base_path)
+        elif not base_path:
+            # Fallback to default configuration
+            from app.core.config import settings
+            base_path = settings.UPLOADS_DIR
+            
         self.operations = TaskOperationsRepository(base_path)
         self.queries = TaskQueryRepository(base_path)
     

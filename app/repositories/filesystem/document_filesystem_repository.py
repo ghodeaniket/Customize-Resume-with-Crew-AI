@@ -21,6 +21,7 @@ class FileSystemDocumentRepository(DocumentRepository):
         Args:
             base_path: Base directory for storing documents
         """
+        self.base_path = Path(base_path)
         self.metadata_repo = DocumentMetadataRepository(base_path)
         self.storage_repo = DocumentStorageRepository(base_path)
     
