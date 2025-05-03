@@ -1,6 +1,6 @@
 """Service for setting up CrewAI agents and tools."""
 from typing import Dict, List, Any
-from crewai import LLM, Agent, Crew, Process
+from crewai import Agent, Crew, Process
 
 from app.core.logging import logger
 from app.core.config import settings
@@ -19,11 +19,11 @@ class CrewSetupService:
         """Set up the LLM environment for CrewAI."""
         self.environment_service.setup_llm_environment()
     
-    def create_llm(self) -> LLM:
-        """Create an LLM instance for CrewAI.
+    def create_llm(self) -> Dict[str, str]:
+        """Create LLM configuration for CrewAI.
         
         Returns:
-            LLM: LLM instance
+            Dict[str, str]: LLM configuration dictionary
             
         Raises:
             CustomizationError: If no API key is configured
@@ -34,11 +34,14 @@ class CrewSetupService:
         
         model_name = self.environment_service.get_model_name()
         
-        # Initialize LLM with explicit parameters
-        llm = LLM(api_key=api_key, model=model_name)
-        logger.info(f"Initialized LLM with model: {model_name}")
+        # Return configuration dictionary instead of LLM instance
+        llm_config = {
+            "api_key": api_key,
+            "model": model_name
+        }
+        logger.info(f"Created LLM configuration with model: {model_name}")
         
-        return llm
+        return llm_config
     
     async def create_tools(self, resume_service_instance: Any) -> List[Any]:
         """Create tools for CrewAI agents.
@@ -49,61 +52,44 @@ class CrewSetupService:
         Returns:
             List[Any]: List of tools
         """
-        # Try with class-based tools first
-        try:
-            from app.crews.tools.resume_processor import ResumeProcessorTool, JobMatcherTool
-            
-            # Create class-based tool instances
-            resume_processor_tool = ResumeProcessorTool(resume_service=resume_service_instance)
-            job_matcher_tool = JobMatcherTool() 
-            
-            logger.info("Created class-based tools for CrewAI integration")
-            return [resume_processor_tool, job_matcher_tool]
-            
-        except Exception as tool_error:
-            # Fallback to function-based tools if class-based tools fail
-            logger.warning(
-                f"Class-based tools failed: {str(tool_error)}, "
-                "falling back to function-based tools"
-            )
-            
-            from app.crews.tools.resume_processor import (
-                create_resume_processor_tool, 
-                create_job_matcher_tool
-            )
-            
-            # Create function-based tool instances
-            resume_processor = create_resume_processor_tool(resume_service_instance)
-            job_matcher = create_job_matcher_tool()
-            
-            logger.info(
-                f"Created function-based tools: {type(resume_processor)}, "
-                f"{type(job_matcher)}"
-            )
-            return [resume_processor, job_matcher]
+        # Use function-based tools directly as they are more compatible with CrewAI
+        logger.info("Creating function-based tools for CrewAI integration")
+        
+        from app.crews.tools.resume_processor import (
+            create_resume_processor_tool, 
+            create_job_matcher_tool
+        )
+        
+        # Create function-based tool instances
+        resume_processor = create_resume_processor_tool(resume_service_instance)
+        job_matcher = create_job_matcher_tool()
+        
+        # These are already proper Tool instances - no need to log their types
+        logger.info("Created function-based tools: resume_processor and job_matcher")
+        
+        return [resume_processor, job_matcher]
     
-    async def create_agents(self, llm: LLM, tools: List[Any]) -> Dict[str, Agent]:
+    async def create_agents(self, llm_config: Dict[str, str], tools: List[Any]) -> Dict[str, Agent]:
         """Create agents for CrewAI.
         
         Args:
-            llm: LLM instance
+            llm_config: LLM configuration dictionary
             tools: List of tools
             
         Returns:
             Dict[str, Agent]: Dictionary of agent name to agent
         """
+        # Use the new agent factory functions that properly handle LLM configuration
         from app.crews.agents import (
-            create_resume_analyzer_agent, 
-            create_resume_optimizer_agent
+            create_resume_analyzer_agent_v2, 
+            create_resume_optimizer_agent_v2
         )
         
         # Create analyzer agent
-        analyzer_agent = create_resume_analyzer_agent(tools=tools)
-        analyzer_agent.llm = llm
+        analyzer_agent = create_resume_analyzer_agent_v2(tools=tools)
         
         # Create optimizer agent
-        optimizer_agent = create_resume_optimizer_agent(tools=tools)
-        optimizer_agent.llm = llm
+        optimizer_agent = create_resume_optimizer_agent_v2(tools=tools)
         
         logger.info("Created analyzer and optimizer agents")
         
