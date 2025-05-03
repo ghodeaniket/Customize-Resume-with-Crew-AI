@@ -62,7 +62,8 @@ class ResumeCustomizationController(BaseResumeController):
         
         return responses.CustomizationResponse(
             task_id=task_id,
-            status="processing"
+            status="processing",
+            customization_level=request.customize_level or "standard"
         )
     
     async def get_customization_status(

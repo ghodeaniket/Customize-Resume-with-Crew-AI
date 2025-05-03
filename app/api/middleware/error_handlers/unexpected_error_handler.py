@@ -18,7 +18,7 @@ class UnexpectedErrorHandler(BaseErrorHandler):
         
         # Log the full traceback
         self._log_error(
-            message=f"Unexpected Error: {str(exc)}",
+            message=f"Unexpected Error: {str(exc).replace('{', '{{').replace('}', '}}')}",
             error_id=error_id,
             path=request.url.path,
             method=request.method,
