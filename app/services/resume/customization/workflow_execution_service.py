@@ -1,6 +1,6 @@
 """Service for managing workflow execution phases."""
 import time
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 
 from app.core.logging import logger
 from app.services.resume.storage_service import ResumeStorageService
@@ -32,6 +32,37 @@ class WorkflowExecutionService:
         self.task_progress = task_progress
         self.state_manager = state_manager
         self.storage_service = storage_service
+    
+    async def get_resume_data(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get resume data by task ID.
+        
+        This method is required by the ResumeProcessorTool and delegates
+        to the storage service.
+        
+        Args:
+            task_id: Task identifier
+            
+        Returns:
+            Optional[Dict[str, Any]]: Resume data including text and metadata
+        """
+        try:
+            metadata = await self.storage_service.get_metadata(task_id)
+            text = await self.storage_service.get_extracted_text(task_id)
+            
+            if not text:
+                logger.warning(f"No extracted text found for task {task_id}")
+                return None
+            
+            # Return the data in the format expected by the tool
+            return {
+                "status": metadata.get("status", "unknown"),
+                "text": text,
+                "metadata": metadata
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting resume data for task {task_id}: {str(e)}", exc_info=True)
+            return None
     
     async def perform_job_analysis(
         self,

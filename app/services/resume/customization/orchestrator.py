@@ -47,6 +47,37 @@ class ResumeCustomizationOrchestrator(BaseService[Dict[str, Any], str]):
         
         logger.info("Initialized ResumeCustomizationOrchestrator")
     
+    async def get_resume_data(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get resume data by task ID.
+        
+        This method is required by the ResumeProcessorTool and delegates
+        to the storage service.
+        
+        Args:
+            task_id: Task identifier
+            
+        Returns:
+            Optional[Dict[str, Any]]: Resume data including text and metadata
+        """
+        try:
+            metadata = await self.storage_service.get_metadata(task_id)
+            text = await self.storage_service.get_extracted_text(task_id)
+            
+            if not text:
+                logger.warning(f"No extracted text found for task {task_id}")
+                return None
+            
+            # Return the data in the format expected by the tool
+            return {
+                "status": metadata.get("status", "unknown"),
+                "text": text,
+                "metadata": metadata
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting resume data for task {task_id}: {str(e)}", exc_info=True)
+            return None
+    
     async def customize_resume(
         self, 
         resume_id: str, 
