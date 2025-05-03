@@ -1,77 +1,180 @@
 """Unit tests for CrewAI tasks."""
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import Mock, patch
 
-from app.crews.tasks import create_job_analysis_task, create_resume_optimization_task
-
-
-@pytest.fixture
-def mock_agent():
-    """Mock agent for testing."""
-    return MagicMock()
+from app.crews.tasks.base import BaseResumeTask
+from app.crews.tasks.base.base_task import TaskConfig
+from app.crews.tasks.analysis_task import JobAnalysisTask
+from app.crews.tasks.optimization_task import ResumeOptimizationTask
 
 
-def test_create_job_analysis_task(mock_agent):
-    """Test creating a job analysis task."""
-    with patch("app.crews.tasks.analyze_job.Task") as mock_task:
-        # Setup mock
-        mock_task_instance = MagicMock()
-        mock_task.return_value = mock_task_instance
+class TestBaseResumeTask:
+    """Test the base task functionality."""
+    
+    def test_init(self):
+        """Test task initialization."""
+        config = TaskConfig(
+            name="Test Task",
+            description="Test description",
+            expected_output="Test output"
+        )
         
-        # Sample job description
-        job_description = "Software Developer position with Python and FastAPI experience"
+        task = BaseResumeTask(config)
         
-        # Call the function
-        task = create_job_analysis_task(agent=mock_agent, job_description=job_description)
+        assert task.config == config
+        assert task._task is None
+    
+    def test_create_task(self):
+        """Test task creation."""
+        config = TaskConfig(
+            name="Test Task",
+            description="Test description",
+            expected_output="Test output"
+        )
         
-        # Verify task was created with correct parameters
-        mock_task.assert_called_once()
+        with patch('app.crews.tasks.base.base_task.Task') as mock_task_class:
+            mock_task_instance = Mock()
+            mock_task_class.return_value = mock_task_instance
+            
+            task = BaseResumeTask(config)
+            agent = Mock()
+            
+            crew_task = task.create_task(agent)
+            
+            mock_task_class.assert_called_once()
+            assert crew_task == mock_task_instance
+            assert task._task == mock_task_instance
+    
+    def test_reset_task(self):
+        """Test task reset."""
+        config = TaskConfig(
+            name="Test Task",
+            description="Test description",
+            expected_output="Test output"
+        )
         
-        # Get the call arguments
-        call_args = mock_task.call_args[1]
+        task = BaseResumeTask(config)
+        task._task = Mock()
         
-        # Check key parameters
-        assert job_description in call_args["description"]
-        assert "analysis" in call_args["expected_output"]
-        assert call_args["agent"] == mock_agent
+        task.reset_task()
         
-        # Verify the returned task
-        assert task == mock_task_instance
+        assert task._task is None
 
 
-def test_create_resume_optimization_task(mock_agent):
-    """Test creating a resume optimization task."""
-    with patch("app.crews.tasks.optimize_resume.Task") as mock_task:
-        # Setup mock
-        mock_task_instance = MagicMock()
-        mock_task.return_value = mock_task_instance
+class TestJobAnalysisTask:
+    """Test the job analysis task."""
+    
+    def test_init(self):
+        """Test job analysis task initialization."""
+        job_description = "Test job description"
+        task = JobAnalysisTask(job_description)
         
-        # Sample data
-        resume_text = "Python developer with 5 years of experience"
-        job_analysis = "Looking for Python developer with FastAPI experience"
-        customize_level = "comprehensive"
+        assert task.config.name == "Job Analysis"
+        assert job_description in task.config.description
+        assert task.job_description == job_description
+    
+    def test_validate_result_str(self):
+        """Test result validation for string results."""
+        task = JobAnalysisTask("Test job description")
         
-        # Call the function
-        task = create_resume_optimization_task(
-            agent=mock_agent, 
-            resume_text=resume_text, 
-            job_analysis_result=job_analysis,
+        # Valid result
+        valid_result = "This result includes skills and experience requirements"
+        assert task.validate_result(valid_result) is True
+        
+        # Invalid result
+        invalid_result = "This result has no relevant content"
+        assert task.validate_result(invalid_result) is False
+        
+        # None result
+        assert task.validate_result(None) is False
+    
+    def test_validate_result_dict(self):
+        """Test result validation for dictionary results."""
+        task = JobAnalysisTask("Test job description")
+        
+        # Valid result
+        valid_result = {
+            "skills": ["Python", "Docker"],
+            "experience": "5 years"
+        }
+        assert task.validate_result(valid_result) is True
+        
+        # Invalid result
+        invalid_result = {
+            "unrelated": "content"
+        }
+        assert task.validate_result(invalid_result) is False
+    
+    def test_factory_function(self):
+        """Test the factory function for backward compatibility."""
+        from app.crews.tasks.analysis_task import create_job_analysis_task
+        
+        with patch('app.crews.tasks.base.base_task.Task') as mock_task_class:
+            mock_task_instance = Mock()
+            mock_task_class.return_value = mock_task_instance
+            
+            agent = Mock()
+            job_description = "Test job description"
+            
+            task = create_job_analysis_task(agent, job_description)
+            
+            assert task == mock_task_instance
+
+
+class TestResumeOptimizationTask:
+    """Test the resume optimization task."""
+    
+    def test_init(self):
+        """Test resume optimization task initialization."""
+        resume_text = "Test resume"
+        job_analysis_result = "Test analysis"
+        customize_level = "standard"
+        
+        task = ResumeOptimizationTask(
+            resume_text=resume_text,
+            job_analysis_result=job_analysis_result,
             customize_level=customize_level
         )
         
-        # Verify task was created with correct parameters
-        mock_task.assert_called_once()
+        assert task.config.name == "Resume Optimization"
+        assert resume_text in task.config.description
+        assert job_analysis_result in task.config.description
+        assert task.resume_text == resume_text
+        assert task.job_analysis_result == job_analysis_result
+        assert task.customize_level == customize_level
+    
+    def test_get_customization_guidance(self):
+        """Test getting customization guidance."""
+        task = ResumeOptimizationTask(
+            resume_text="Test",
+            job_analysis_result="Test",
+            customize_level="minimal"
+        )
         
-        # Get the call arguments
-        call_args = mock_task.call_args[1]
+        minimal_guidance = task._get_customization_guidance("minimal")
+        assert "90%" in minimal_guidance
         
-        # Check key parameters
-        assert resume_text in call_args["description"]
-        assert job_analysis in call_args["description"]
-        assert customize_level in call_args["description"]
-        assert "optimized resume" in call_args["expected_output"]
-        assert call_args["agent"] == mock_agent
-        assert job_analysis in call_args["context"]
+        standard_guidance = task._get_customization_guidance("standard")
+        assert "75%" in standard_guidance
         
-        # Verify the returned task
-        assert task == mock_task_instance
+        comprehensive_guidance = task._get_customization_guidance("comprehensive")
+        assert "90% of the job requirements" in comprehensive_guidance
+    
+    def test_validate_result(self):
+        """Test result validation."""
+        task = ResumeOptimizationTask(
+            resume_text="Test",
+            job_analysis_result="Test",
+            customize_level="standard"
+        )
+        
+        # Valid result
+        valid_result = "This is a resume with experience, skills, and education sections."
+        assert task.validate_result(valid_result) is True
+        
+        # Too short result
+        short_result = "Too short"
+        assert task.validate_result(short_result) is False
+        
+        # None result
+        assert task.validate_result(None) is False
