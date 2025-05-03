@@ -52,7 +52,8 @@ class ResumeCustomizationService(BaseService[Dict[str, Any], str]):
             crew_setup=crew_setup,
             task_progress=task_progress,
             validation=validation,
-            state_manager=state_manager
+            state_manager=state_manager,
+            storage_service=storage_service
         )
         
         self.workflow_execution = WorkflowExecutionService(
@@ -65,6 +66,20 @@ class ResumeCustomizationService(BaseService[Dict[str, Any], str]):
         self.error_handler = error_handler
         
         logger.info("Initialized ResumeCustomizationService")
+    
+    async def get_resume_data(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get resume data by task ID.
+        
+        This method is required by the ResumeProcessorTool and delegates
+        to the workflow setup service.
+        
+        Args:
+            task_id: Task identifier
+            
+        Returns:
+            Optional[Dict[str, Any]]: Resume data including text and metadata
+        """
+        return await self.workflow_setup.get_resume_data(task_id)
     
     async def customize_resume(
         self, 
@@ -100,7 +115,8 @@ class ResumeCustomizationService(BaseService[Dict[str, Any], str]):
             )
             
             # Phase 2: CrewAI Setup
-            crew, agents = await self.workflow_setup.setup_crew_environment(state, task_id)
+            # Pass self as the resume service since we have the get_resume_data method
+            crew, agents = await self.workflow_setup.setup_crew_environment(state, task_id, self)
             
             # Phase 3: Job Analysis
             job_analysis_result = await self.workflow_execution.perform_job_analysis(
