@@ -17,7 +17,7 @@ from app.services.task_service import TaskService
 from app.services.document_storage_service import DocumentStorageService
 from app.infrastructure.document_processor import DocumentProcessor
 
-router = APIRouter(prefix="/api/resumes", tags=["resumes"])
+router = APIRouter(prefix="/resumes", tags=["resumes"])
 
 
 def get_resume_controller(

@@ -53,11 +53,18 @@ class ResumeService:
         )
         
         # For customization service compatibility, we need additional services
-        from app.core.config import settings
-        base_path = settings.UPLOADS_DIR
-        self.task_repository = FileSystemTaskRepository(base_path)
-        self.extraction_service = ResumeExtractionService(storage_service=storage_service)
-        self.storage_wrapper = ResumeStorageService(storage_service=storage_service)
+        from app.repositories.factory import get_document_repository, get_task_repository
+        self.document_repository = get_document_repository()
+        self.task_repository = get_task_repository(document_repository=self.document_repository)
+        
+        # Create refactored storage service using proper repository
+        self.storage_wrapper = ResumeStorageService(document_repository=self.document_repository)
+        
+        # Create extraction service with proper dependencies
+        self.extraction_service = ResumeExtractionService(
+            document_processor=document_processor,
+            storage_service=self.storage_wrapper
+        )
         
         self.customization_service = get_resume_customization_service(
             extraction_service=self.extraction_service,

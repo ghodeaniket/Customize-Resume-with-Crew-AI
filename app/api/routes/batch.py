@@ -8,7 +8,7 @@ from app.models.schemas import requests
 from app.services.task_service import TaskService
 from app.core.logging import logger
 
-router = APIRouter(prefix="/api/batch", tags=["batch"])
+router = APIRouter(prefix="/batch", tags=["batch"])
 
 
 @router.post("/tasks/status", response_model=Dict[str, Any])
@@ -58,9 +58,9 @@ async def get_batch_task_status(
                         # Construct result URL based on task type
                         task_type = task_data.get("task_type", "")
                         if task_type == "resume_processing":
-                            status_info["result_url"] = f"/api/resumes/{task_id}/text"
+                            status_info["result_url"] = f"/api/v1/resumes/{task_id}/text"
                         elif task_type == "resume_customization":
-                            status_info["result_url"] = f"/api/resumes/customization/{task_id}/result"
+                            status_info["result_url"] = f"/api/v1/resumes/customization/{task_id}/result"
                 
                 results[task_id] = status_info
             else:
