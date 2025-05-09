@@ -242,33 +242,29 @@ def submit_customization_request() -> bool:
             # Submit the request
             response = submit_customization(request_dict)
             
-            # Update job description state with the response
-            if 'data' in response:
-                job_state["customization_task_id"] = response["data"]["task_id"]
-                job_state["customization_status"] = response["data"]["status"]
-                job_state["customization_progress"] = 0
-                job_state["last_status_check"] = datetime.now().isoformat()
-                job_state["step"] = "complete"
-                
-                # Estimate completion time (in seconds) - default to 2 minutes if not provided
-                est_time = response["data"].get("estimated_completion_time", 120)
+            # Update job description state with the response - use response directly
+            job_state["customization_task_id"] = response.get("task_id")
+            job_state["customization_status"] = response.get("status", "processing")
+            job_state["customization_progress"] = 0
+            job_state["last_status_check"] = datetime.now().isoformat()
+            job_state["step"] = "complete"
+            
+            # Estimate completion time (in seconds) - default to 2 minutes if not provided
+            est_time = response.get("estimated_completion_time", 120)
+            if est_time is not None:
                 job_state["estimated_completion_time"] = datetime.now() + timedelta(seconds=est_time)
-                
-                # Update navigation state to proceed to the next step
-                st.session_state.nav_state["current_step"] = 3
-                st.session_state.nav_state["can_proceed"] = True
-                if 2 not in st.session_state.nav_state["steps_completed"]:
-                    st.session_state.nav_state["steps_completed"].append(2)
-                
-                # Show success message
-                st.success("Customization request submitted successfully! Proceeding to results.")
-                
-                # Return success
-                return True
-            else:
-                # Handle non-standard response format
-                st.error(f"Unexpected response format: {response}")
-                return False
+            
+            # Update navigation state to proceed to the next step
+            st.session_state.nav_state["current_step"] = 3
+            st.session_state.nav_state["can_proceed"] = True
+            if 2 not in st.session_state.nav_state["steps_completed"]:
+                st.session_state.nav_state["steps_completed"].append(2)
+            
+            # Show success message
+            st.success("Customization request submitted successfully! Proceeding to results.")
+            
+            # Return success
+            return True
             
         except Exception as e:
             cust_state["error"] = f"Error submitting customization request: {str(e)}"

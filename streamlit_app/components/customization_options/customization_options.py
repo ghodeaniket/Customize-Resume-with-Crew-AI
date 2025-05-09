@@ -9,7 +9,7 @@ import streamlit as st
 import json
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 
 from utils.job_models import CustomizationRequest
@@ -864,17 +864,22 @@ def submit_customization_request():
             # Join all instructions
             custom_instructions = "\n".join(additional_instructions) if additional_instructions else None
             
-            # Create the request object
-            request = CustomizationRequest(
-                resume_id=upload_state["task_id"],
-                job_description=job_state["processed_text"],
-                customize_level=cust_state["customization_level"],
-                industry=industry,
-                keywords=keywords
-            )
+            # Create the request dictionary directly
+            request_dict = {
+                "resume_id": upload_state["task_id"],
+                "job_description": job_state["processed_text"],
+                "customize_level": cust_state["customization_level"]
+            }
             
-            # Add custom instructions to the request dictionary if available
-            request_dict = request.to_dict()
+            # Add industry if available
+            if industry:
+                request_dict["industry"] = industry
+                
+            # Add keywords if available
+            if keywords:
+                request_dict["keywords"] = keywords
+            
+            # Add custom instructions if available
             if custom_instructions:
                 request_dict["custom_instructions"] = custom_instructions
             
@@ -882,10 +887,16 @@ def submit_customization_request():
             response = submit_customization(request_dict)
             
             # Update job description state with the response
-            job_state["customization_task_id"] = response["data"]["task_id"]
-            job_state["customization_status"] = response["data"]["status"]
+            job_state["customization_task_id"] = response.get("task_id")
+            job_state["customization_status"] = response.get("status", "processing")
             job_state["customization_progress"] = 0
+            job_state["last_status_check"] = datetime.now().isoformat()
             job_state["step"] = "complete"
+            
+            # Estimate completion time (in seconds) - default to 2 minutes if not provided
+            est_time = response.get("estimated_completion_time", 120)
+            if est_time is not None:
+                job_state["estimated_completion_time"] = datetime.now() + timedelta(seconds=est_time)
             
             # Update navigation state to proceed to the next step
             st.session_state.nav_state["current_step"] = 3

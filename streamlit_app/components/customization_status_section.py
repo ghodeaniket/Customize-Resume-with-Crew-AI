@@ -133,28 +133,22 @@ def refresh_status(status_container, task_id):
         # Update last check time
         st.session_state.job_description_state["last_status_check"] = now.isoformat()
         
-        # Extract status data
-        if 'data' in response:
-            data = response["data"]
+        # Extract status data - use response directly as it doesn't have a 'data' wrapper
+        # Update session state with response data
+        st.session_state.job_description_state["customization_status"] = response.get("status")
+        st.session_state.job_description_state["customization_progress"] = response.get("progress", 0)
+        st.session_state.job_description_state["customization_message"] = response.get("message")
+        
+        # If processing is complete, update state accordingly
+        if response.get("status") == "completed":
+            st.session_state.job_description_state["customization_processing_time"] = response.get("processing_time_ms", 0) / 1000 if response.get("processing_time_ms") else 0
             
-            # Update session state with response data
-            st.session_state.job_description_state["customization_status"] = data.get("status")
-            st.session_state.job_description_state["customization_progress"] = data.get("progress", 0)
-            st.session_state.job_description_state["customization_message"] = data.get("message")
-            
-            # If processing is complete, update state accordingly
-            if data.get("status") == "completed":
-                st.session_state.job_description_state["customization_processing_time"] = data.get("processing_time_ms", 0) / 1000
-                
-                # When completed, automatically retrieve results
-                retrieve_customization_results(task_id)
-            
-            # If processing failed, capture the error
-            if data.get("status") == "failed":
-                st.session_state.job_description_state["customization_error"] = data.get("message", "Unknown error")
-        else:
-            # Handle non-standard response format
-            st.error(f"Unexpected response format: {response}")
+            # When completed, automatically retrieve results
+            retrieve_customization_results(task_id)
+        
+        # If processing failed, capture the error
+        if response.get("status") == "failed":
+            st.session_state.job_description_state["customization_error"] = response.get("message", "Unknown error")
                 
     except Exception as e:
         # Handle API errors
@@ -180,19 +174,14 @@ def retrieve_customization_results(task_id):
         with st.spinner("Retrieving customization results..."):
             response = get_customization_result(task_id)
             
-            # Update session state with response data
-            if 'data' in response:
-                data = response["data"]
-                st.session_state.job_description_state["customization_result"] = data
-                st.session_state.job_description_state["customization_view_results"] = True
-                st.success("Retrieved customization results successfully!")
-                
-                # Navigation - mark step 3 as completed
-                if 3 not in st.session_state.nav_state["steps_completed"]:
-                    st.session_state.nav_state["steps_completed"].append(3)
-            else:
-                # Handle non-standard response format
-                st.error(f"Unexpected response format: {response}")
+            # Update session state with response data - use response directly
+            st.session_state.job_description_state["customization_result"] = response
+            st.session_state.job_description_state["customization_view_results"] = True
+            st.success("Retrieved customization results successfully!")
+            
+            # Navigation - mark step 3 as completed
+            if 3 not in st.session_state.nav_state["steps_completed"]:
+                st.session_state.nav_state["steps_completed"].append(3)
                 
     except Exception as e:
         # Handle API errors

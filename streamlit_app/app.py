@@ -84,23 +84,12 @@ def main():
                 # If the customization has been submitted, proceed to step 3
                 st.session_state.nav_state["current_step"] = 3
                 st.rerun()
-            elif st.session_state.job_description_state.get("step") == "submit":
-                # Show the customization request submission section
-                if render_customization_request_section():
-                    # If submission is successful, update state and proceed to step 3
-                    if 2 not in st.session_state.nav_state["steps_completed"]:
-                        st.session_state.nav_state["steps_completed"].append(2)
-                    st.session_state.nav_state["can_proceed"] = True
-                    st.session_state.nav_state["current_step"] = 3
-                    st.rerun()
             else:
                 # Render the customization options section
                 render_customization_options()
                 
-                # If user clicks submit, move to the submission step
-                if st.button("Review & Submit", type="primary"):
-                    st.session_state.job_description_state["step"] = "submit"
-                    st.rerun()
+                # If the "Customize My Resume" button is clicked in customization_options.py,
+                # it will directly handle submission and update the step
         
         # Button to go back to resume upload if needed
         if st.button("← Back to Resume Upload"):
