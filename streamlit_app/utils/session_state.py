@@ -1,5 +1,7 @@
 """Session state management utilities."""
 import streamlit as st
+import uuid
+from datetime import datetime
 
 def initialize_session_state():
     """Initialize all required session state variables if they don't exist."""
@@ -16,6 +18,64 @@ def initialize_session_state():
             "current_file": None,
             "extracted_text": None,
             "auto_refresh": True,
+        }
+    
+    # Job description state tracking
+    if "job_description_state" not in st.session_state:
+        st.session_state.job_description_state = {
+            "raw_text": "",
+            "processed_text": "",
+            "is_processing": False,
+            "is_valid": False,
+            "error": None,
+            "validation_result": None,
+            "last_update": None,
+            "keywords": [],
+            "saved_descriptions": [],
+            "customization_level": "standard",
+            "industry": None,
+            "customization_task_id": None,
+            "customization_status": None,
+            "customization_progress": 0,
+            "customization_result": None,
+            "step": "input",  # input, preview, submitting, complete
+            "auto_preview": True,
+        }
+    
+    # Customization options state (Phase 3)
+    if "customization_state" not in st.session_state:
+        st.session_state.customization_state = {
+            "customization_level": "standard",
+            "industry": None,
+            "subindustry": None,
+            "preferences": {
+                "emphasize_leadership": False,
+                "emphasize_technical_skills": True,
+                "emphasize_soft_skills": False,
+                "emphasize_achievements": True,
+                "emphasize_education": False,
+                "emphasize_remote_work": False,
+                "academic_focus": False,
+                "highlight_certifications": False,
+                "career_transition": False,
+                "ats_optimization": True
+            },
+            "custom_preferences": {},
+            "custom_instructions": "",
+            "keywords_to_include": [],
+            "keywords_to_exclude": [],
+            "saved_presets": {},
+            "active_preset": None,
+            "is_submitting": False,
+            "error": None
+        }
+    
+    # Navigation state
+    if "nav_state" not in st.session_state:
+        st.session_state.nav_state = {
+            "current_step": 1,  # 1: Resume Upload, 2: Job Description, 3: Results
+            "can_proceed": False,
+            "steps_completed": [],
         }
     
     # API configuration
