@@ -104,7 +104,7 @@ def render_customization_status_section():
         refresh_status(status_container, task_id)
     
     # Auto-refresh if enabled
-    if st.session_state.job_description_state.get("auto_refresh", True) and status == "processing":
+    if st.session_state.job_description_state.get("auto_refresh", True):
         refresh_status(status_container, task_id)
 
 
@@ -163,8 +163,7 @@ def refresh_status(status_container, task_id):
             st.session_state.job_description_state["customization_error"] = str(e)
             
     # Sleep briefly to avoid overwhelming the API and rerun if auto-refresh is enabled
-    if (st.session_state.job_description_state.get("auto_refresh", True) and 
-        st.session_state.job_description_state.get("customization_status") == "processing"):
+    if st.session_state.job_description_state.get("auto_refresh", True) and st.session_state.job_description_state.get("customization_status") == "processing":
         time.sleep(2)
         st.rerun()
 
