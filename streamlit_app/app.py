@@ -67,7 +67,7 @@ def main():
                     st.session_state.nav_state["steps_completed"].append(1)
                 
                 # Button to proceed to job description step
-                if st.button("Continue to Job Description", type="primary"):
+                if st.button("Continue to Job Description", type="primary", key="proceed_to_job_description_btn"):
                     st.session_state.nav_state["current_step"] = 2
                     st.rerun()
     
@@ -92,7 +92,7 @@ def main():
                 # it will directly handle submission and update the step
         
         # Button to go back to resume upload if needed
-        if st.button("← Back to Resume Upload"):
+        if st.button("← Back to Resume Upload", key="back_to_upload_btn"):
             st.session_state.nav_state["current_step"] = 1
             st.rerun()
     
@@ -110,7 +110,7 @@ def main():
         
         # Button to go back to job description if needed (only if not viewing results)
         if not st.session_state.job_description_state.get("customization_view_results", False):
-            if st.button("← Back to Job Description"):
+            if st.button("← Back to Job Description", key="back_to_job_desc_btn"):
                 st.session_state.nav_state["current_step"] = 2
                 st.rerun()
 

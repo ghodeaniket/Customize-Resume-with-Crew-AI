@@ -1,9 +1,9 @@
 """
-Results Section component implementation (Phase 4).
+Results Section component implementation (Phase 5).
 
-This component provides a UI for displaying customization results,
-showing the original vs. customized resume, highlighting changes,
-and providing download options.
+This component provides a comprehensive UI for displaying customization results,
+showing the original vs. customized resume with detailed comparison,
+providing analytics, and offering multiple export options.
 """
 
 import streamlit as st
@@ -13,6 +13,25 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 import json
 import re
+
+# Import components
+from components.compare_view import render_compare_view
+from components.results_dashboard import render_results_dashboard
+
+# Import utilities
+from utils.text_processing.diff_highlighter import (
+    split_resume_into_sections,
+    generate_diff_for_sections,
+    extract_key_changes
+)
+from utils.text_processing.export import (
+    export_as_text,
+    export_as_html, 
+    export_as_pdf,
+    export_as_docx,
+    copy_to_clipboard,
+    get_print_friendly_view
+)
 
 
 def render_results_section():
@@ -30,7 +49,7 @@ def render_results_section():
             st.info("Your resume is still being customized. Please wait for the process to complete.")
             
             # Link back to status section
-            if st.button("View Status"):
+            if st.button("View Status", key="results_view_status_btn"):
                 st.session_state.job_description_state["customization_view_results"] = False
                 st.rerun()
                 
@@ -41,7 +60,7 @@ def render_results_section():
             st.error(f"Customization failed: {error_message}")
             
             # Offer retry button
-            if st.button("Retry Customization"):
+            if st.button("Retry Customization", key="results_retry_customization_btn"):
                 st.session_state.job_description_state["step"] = "input"
                 st.session_state.nav_state["current_step"] = 2
                 st.rerun()
@@ -52,23 +71,72 @@ def render_results_section():
             st.warning("No customization results available yet.")
             
             # Link to start customization
-            if st.button("Start Customization"):
+            if st.button("Start Customization", key="results_start_customization_btn"):
                 st.session_state.nav_state["current_step"] = 2
                 st.rerun()
                 
             return
     
+    # Validate result is a dictionary
+    if not isinstance(result, dict):
+        st.error("Invalid result format. Please try again.")
+        
+        # Show result for debugging
+        with st.expander("Debug Information", expanded=False):
+            st.write("Result type:", type(result))
+            st.write("Result content:", result)
+        
+        # Offer retry button
+        if st.button("Retry Customization", key="results_retry_invalid_btn"):
+            st.session_state.job_description_state["step"] = "input"
+            st.session_state.nav_state["current_step"] = 2
+            st.rerun()
+            
+        return
+    
+    # Extract the customized text
+    customized_text = None
+    
+    # Check for common result formats
+    if "customized_text" in result:
+        customized_text = result["customized_text"]
+    elif "result" in result:
+        customized_text = result["result"]
+    elif "text" in result:
+        customized_text = result["text"]
+    
+    # Create a copy of the result with the extracted customized text
+    processed_result = dict(result)
+    processed_result["customized_text"] = customized_text
+    
     # Create tabs for different views
-    tabs = st.tabs(["Side by Side Comparison", "Key Changes", "Download Options"])
+    tabs = st.tabs(["Comparison", "Analysis", "Export", "Feedback"])
     
     with tabs[0]:
-        render_side_by_side_comparison(result)
+        # Get original resume text from session state
+        original_text = st.session_state.upload_state.get("extracted_text", "")
+        
+        # Debug info
+        with st.expander("Debug Information", expanded=False):
+            st.write("Original text available:", original_text is not None)
+            st.write("Original text length:", len(original_text) if original_text else 0)
+            st.write("Customized text available:", customized_text is not None)
+            st.write("Customized text length:", len(customized_text) if customized_text else 0)
+        
+        # Render the comparison view and get comparison data
+        comparison_data = render_compare_view(original_text, customized_text)
     
     with tabs[1]:
-        render_key_changes(result)
+        # Render the results dashboard
+        render_results_dashboard(processed_result, comparison_data)
     
     with tabs[2]:
-        render_download_options(result)
+        # Render export options with our enhanced export functionality
+        render_export_options(processed_result)
+    
+    with tabs[3]:
+        # Render feedback section
+        render_feedback_section(processed_result)
     
     # Add ability to start a new customization
     st.markdown("---")
@@ -76,249 +144,166 @@ def render_results_section():
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("Customize for Another Job", type="secondary", use_container_width=True):
+        if st.button("Customize for Another Job", type="secondary", use_container_width=True, key="results_new_job_btn"):
             # Reset the job description state but keep the resume
             reset_for_new_job()
     
     with col2:
-        if st.button("Start Over with New Resume", type="secondary", use_container_width=True):
+        if st.button("Start Over with New Resume", type="secondary", use_container_width=True, key="results_start_over_btn"):
             # Reset everything and go back to step 1
             reset_everything()
 
 
-def render_side_by_side_comparison(result):
+def render_export_options(result: Dict[str, Any]):
     """
-    Render a side-by-side comparison of original and customized resumes.
+    Render comprehensive export options for the customized resume.
     
     Args:
         result: The customization result data
     """
-    st.subheader("Before and After Comparison")
-    
-    # Get original resume text from session state
-    original_text = st.session_state.upload_state.get("extracted_text", "")
-    customized_text = result.get("customized_text", "")
-    
-    # Create columns for side-by-side display
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### Original Resume")
-        st.text_area(
-            "Original Content",
-            value=original_text,
-            height=400,
-            disabled=True,
-            key="original_resume_textbox"
-        )
-    
-    with col2:
-        st.markdown("### Customized Resume")
-        st.text_area(
-            "Customized Content",
-            value=customized_text,
-            height=400,
-            disabled=True,
-            key="customized_resume_textbox"
-        )
-    
-    # Show optimization metrics if available
-    if "optimization_metrics" in result:
-        metrics = result["optimization_metrics"]
-        
-        st.markdown("### Optimization Metrics")
-        
-        # Create metrics display with columns
-        metric_cols = st.columns(len(metrics))
-        
-        for i, (key, value) in enumerate(metrics.items()):
-            with metric_cols[i]:
-                # Format the metric name
-                metric_name = key.replace("_", " ").title()
-                
-                # Format the value
-                if isinstance(value, float):
-                    if 0 <= value <= 1:
-                        # If value is between 0-1, display as percentage
-                        value_display = f"{value * 100:.1f}%"
-                    else:
-                        # Otherwise display with 1 decimal place
-                        value_display = f"{value:.1f}"
-                else:
-                    value_display = str(value)
-                
-                # Show metric
-                st.metric(metric_name, value_display)
-
-
-def render_key_changes(result):
-    """
-    Render a summary of key changes made during customization.
-    
-    Args:
-        result: The customization result data
-    """
-    st.subheader("Key Changes Summary")
-    
-    if "changes_summary" in result:
-        changes = result["changes_summary"]
-        
-        # Show summary in expandable sections
-        for section, items in changes.items():
-            # Format section name
-            section_name = section.replace("_", " ").title()
-            
-            with st.expander(f"{section_name}", expanded=True):
-                if isinstance(items, list):
-                    # Display list items
-                    for item in items:
-                        st.markdown(f"- {item}")
-                elif isinstance(items, dict):
-                    # Display dictionary items
-                    for key, value in items.items():
-                        st.markdown(f"**{key}**: {value}")
-                else:
-                    # Display simple value
-                    st.markdown(str(items))
-    else:
-        # If no changes summary is available
-        st.info("No detailed changes summary available.")
-        
-        # Try to generate a simple diff
-        st.markdown("### Changes Highlighted")
-        try:
-            # Get original and customized text
-            original_text = st.session_state.upload_state.get("extracted_text", "")
-            customized_text = result.get("customized_text", "")
-            
-            # Generate diff
-            diff = generate_text_diff(original_text, customized_text)
-            
-            # Display diff with highlights
-            st.markdown(diff, unsafe_allow_html=True)
-        except Exception as e:
-            st.error(f"Error generating diff: {str(e)}")
-
-
-def render_download_options(result):
-    """
-    Render options for downloading the customized resume.
-    
-    Args:
-        result: The customization result data
-    """
-    st.subheader("Download Your Customized Resume")
+    st.subheader("Export Your Customized Resume")
     
     # Get customized text
     customized_text = result.get("customized_text", "")
     
     if not customized_text:
-        st.warning("No customized resume content available for download.")
+        st.warning("No customized resume content available for export.")
         return
     
-    st.info("Currently, only plain text download is available. More formats will be available in future updates.")
+    # Create copy button
+    st.markdown("<p style='margin-bottom: 0.5rem;'>Quick Copy:</p>", unsafe_allow_html=True)
+    copy_to_clipboard(customized_text)
     
-    # Create download button for text version
-    download_text_as_file(customized_text, "customized_resume.txt", "Download as Text (.txt)")
+    # Create file name base - include date in format YYYY-MM-DD
+    today = datetime.now().strftime("%Y-%m-%d")
+    job_title = result.get("job_title", "")
+    if not job_title and "metadata" in result:
+        job_title = result.get("metadata", {}).get("job_title", "")
     
-    # Placeholder for future download options
-    with st.expander("Future Download Options"):
-        st.markdown("""
-        The following formats will be available in upcoming updates:
-        
-        - PDF (.pdf)
-        - Microsoft Word (.docx)
-        - Rich Text Format (.rtf)
-        - HTML (.html)
-        - Markdown (.md)
-        """)
-        
-        # Disabled buttons for future formats
-        col1, col2 = st.columns(2)
-        with col1:
-            st.button("Download as PDF", disabled=True, use_container_width=True)
-            st.button("Download as Word Document", disabled=True, use_container_width=True)
-        
-        with col2:
-            st.button("Download as Rich Text", disabled=True, use_container_width=True)
-            st.button("Download as HTML", disabled=True, use_container_width=True)
-
-
-def generate_text_diff(original_text, customized_text):
-    """
-    Generate an HTML diff between original and customized text.
-    
-    Args:
-        original_text: The original resume text
-        customized_text: The customized resume text
-        
-    Returns:
-        str: HTML markup with differences highlighted
-    """
-    # Split text into lines
-    original_lines = original_text.splitlines()
-    customized_lines = customized_text.splitlines()
-    
-    # Generate diff
-    differ = difflib.HtmlDiff()
-    diff_html = differ.make_file(original_lines, customized_lines, context=True)
-    
-    # Extract just the table part of the diff
-    table_match = re.search(r'<table.*?>(.*?)</table>', diff_html, re.DOTALL)
-    if table_match:
-        table_html = table_match.group(0)
-        
-        # Add custom styling
-        styled_html = f"""
-        <style>
-        .diff {{
-            font-family: monospace;
-            border-collapse: collapse;
-            width: 100%;
-        }}
-        .diff td {{
-            padding: 3px;
-            border: 1px solid #ddd;
-        }}
-        .diff .diff_add {{
-            background-color: #d4edda;
-        }}
-        .diff .diff_sub {{
-            background-color: #f8d7da;
-        }}
-        .diff .diff_chg {{
-            background-color: #fff3cd;
-        }}
-        </style>
-        
-        <div style="overflow-x: auto;">
-        {table_html}
-        </div>
-        """
-        
-        return styled_html
+    # Create a base filename
+    if job_title:
+        base_filename = f"Resume_{today}_{job_title.replace(' ', '_')}"
     else:
-        # If table extraction fails, return a simple comparison
-        return "<p>Diff generation failed. Please use the side-by-side comparison.</p>"
+        base_filename = f"Customized_Resume_{today}"
+    
+    # Display export options
+    st.markdown("<p style='margin: 1.5rem 0 0.5rem 0;'>Download Options:</p>", unsafe_allow_html=True)
+    
+    # Create two columns layout for export buttons
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Text export
+        export_as_text(customized_text, f"{base_filename}.txt")
+        
+        # HTML export
+        export_as_html(customized_text, "Customized Resume", f"{base_filename}.html")
+    
+    with col2:
+        # PDF export
+        export_as_pdf(customized_text, f"{base_filename}.pdf")
+        
+        # DOCX export
+        export_as_docx(customized_text, f"{base_filename}.docx")
+    
+    # Print-friendly view
+    st.markdown("<p style='margin: 1.5rem 0 0.5rem 0;'>Print-Friendly View:</p>", unsafe_allow_html=True)
+    
+    # Create print-friendly HTML view
+    print_html = get_print_friendly_view(customized_text)
+    
+    # Display the print-friendly view in an iframe
+    st.markdown(
+        f"""
+        <iframe srcdoc='{print_html}' width="100%" height="600px" style="border: 1px solid #e2e8f0; border-radius: 0.5rem;"></iframe>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Provide edit options
+    st.markdown("<p style='margin: 1.5rem 0 0.5rem 0;'>Edit Before Export:</p>", unsafe_allow_html=True)
+    
+    # Create editable text area
+    edited_text = st.text_area(
+        "Make your final edits before exporting:",
+        value=customized_text,
+        height=300,
+        key="editable_resume_text"
+    )
+    
+    # Only show save button if text has been changed
+    if edited_text != customized_text:
+        if st.button("Save Edits", key="save_edits_btn"):
+            # Update the result in session state
+            result["customized_text"] = edited_text
+            st.session_state.job_description_state["customization_result"] = result
+            st.success("Your edits have been saved!")
+            st.rerun()
 
 
-def download_text_as_file(text_content, filename, button_text):
+def render_feedback_section(result: Dict[str, Any]):
     """
-    Create a download button for text content.
+    Render feedback collection and customization quality rating.
     
     Args:
-        text_content: The text to download
-        filename: The filename to use
-        button_text: Text to display on the button
+        result: The customization result data
     """
-    # Create a button that triggers download when clicked
-    st.download_button(
-        label=button_text,
-        data=text_content,
-        file_name=filename,
-        mime="text/plain",
-        use_container_width=True
+    st.subheader("Provide Feedback")
+    
+    # Create rating system
+    st.markdown("<p>How would you rate the quality of this customization?</p>", unsafe_allow_html=True)
+    
+    # Get current rating from session state if available
+    current_rating = st.session_state.get("customization_rating", 0)
+    
+    # Create 5-star rating
+    rating = st.slider(
+        "Rating",
+        min_value=1,
+        max_value=5,
+        value=current_rating if current_rating > 0 else 3,
+        step=1,
+        help="Rate the quality of the customized resume from 1 (poor) to 5 (excellent)",
+        key="customization_rating_slider"
     )
+    
+    # Store rating in session state
+    st.session_state["customization_rating"] = rating
+    
+    # Render star icons based on rating
+    rating_stars = "⭐" * rating + "☆" * (5 - rating)
+    st.markdown(f"<p style='font-size: 1.5rem; text-align: center;'>{rating_stars}</p>", unsafe_allow_html=True)
+    
+    # Additional feedback text area
+    feedback_text = st.text_area(
+        "Additional feedback or suggestions (optional):",
+        key="customization_feedback_text"
+    )
+    
+    # Submit feedback button
+    if st.button("Submit Feedback", key="submit_feedback_btn"):
+        # Store feedback in session state
+        st.session_state["customization_feedback"] = {
+            "rating": rating,
+            "feedback": feedback_text,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Show success message
+        st.success("Thank you for your feedback!")
+    
+    # Option to regenerate with different parameters
+    st.markdown("<p style='margin-top: 1.5rem;'>Not satisfied? You can regenerate your resume with different parameters:</p>", unsafe_allow_html=True)
+    
+    if st.button("Regenerate with Different Parameters", key="regenerate_params_btn"):
+        # Keep the job description but reset customization state
+        st.session_state.job_description_state["customization_task_id"] = None
+        st.session_state.job_description_state["customization_status"] = None
+        st.session_state.job_description_state["customization_progress"] = 0
+        st.session_state.job_description_state["customization_result"] = None
+        st.session_state.job_description_state["step"] = "input"
+        st.session_state.nav_state["current_step"] = 2
+        st.rerun()
 
 
 def reset_for_new_job():
