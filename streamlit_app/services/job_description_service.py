@@ -22,12 +22,12 @@ from services.api_service import get_api_url, with_retry
 DEFAULT_TIMEOUT = 30.0  # seconds
 
 
-def submit_customization(request: CustomizationRequest) -> Dict[str, Any]:
+def submit_customization(request: Dict[str, Any]) -> Dict[str, Any]:
     """
     Submit a customization request to the API.
     
     Args:
-        request: The customization request object
+        request: The customization request data as a dictionary
         
     Returns:
         dict: The API response data
@@ -38,8 +38,8 @@ def submit_customization(request: CustomizationRequest) -> Dict[str, Any]:
     url = get_api_url("resumes/customize")
     
     try:
-        # Prepare the request data
-        request_data = request.to_dict()
+        # Use the request data directly
+        request_data = request
         
         # For debugging - add info about the request payload
         with st.expander("Debug Information", expanded=False):

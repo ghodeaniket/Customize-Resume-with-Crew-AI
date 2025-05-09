@@ -1,10 +1,10 @@
 """
 Resume Customizer - Streamlit Application
-Phase 1, 2 & 3: Resume Upload, Processing, Job Description Parsing, and Customization Options
+Phase 1-4: Resume Upload, Processing, Job Description Parsing, Customization Options, and Status Tracking
 
 This application provides a frontend for the Resume Customizer backend service,
 allowing users to upload resumes, track processing status, submit job descriptions,
-and configure customization options for resume generation.
+configure customization options, and view customized results.
 """
 import streamlit as st
 from components.header import render_header
@@ -12,7 +12,11 @@ from components.upload_section import render_upload_section
 from components.status_section import render_status_section
 from components.job_description_section import render_job_description_section
 from components.customization_options import render_customization_options
+from components.customization_request_section import render_customization_request_section
+from components.customization_status_section import render_customization_status_section
+from components.results_section import render_results_section
 from utils.session_state import initialize_session_state
+from utils.error_handling import show_error_message
 
 # Configure page settings
 st.set_page_config(
@@ -74,18 +78,28 @@ def main():
         # Check if job description is processed and ready for customization
         if (st.session_state.job_description_state["processed_text"] and 
             st.session_state.job_description_state["is_valid"]):
-            # Render the customization options section
-            render_customization_options()
             
-            # If customization task is submitted, mark step 2 as completed
-            if st.session_state.job_description_state.get("customization_task_id"):
-                if 2 not in st.session_state.nav_state["steps_completed"]:
-                    st.session_state.nav_state["steps_completed"].append(2)
-                st.session_state.nav_state["can_proceed"] = True
-                
-                # Auto-proceed to step 3 if a customization task exists
-                if st.session_state.job_description_state["customization_status"] == "processing":
+            # Check if we're at the submission step or still configuring
+            if st.session_state.job_description_state.get("step") == "complete":
+                # If the customization has been submitted, proceed to step 3
+                st.session_state.nav_state["current_step"] = 3
+                st.rerun()
+            elif st.session_state.job_description_state.get("step") == "submit":
+                # Show the customization request submission section
+                if render_customization_request_section():
+                    # If submission is successful, update state and proceed to step 3
+                    if 2 not in st.session_state.nav_state["steps_completed"]:
+                        st.session_state.nav_state["steps_completed"].append(2)
+                    st.session_state.nav_state["can_proceed"] = True
                     st.session_state.nav_state["current_step"] = 3
+                    st.rerun()
+            else:
+                # Render the customization options section
+                render_customization_options()
+                
+                # If user clicks submit, move to the submission step
+                if st.button("Review & Submit", type="primary"):
+                    st.session_state.job_description_state["step"] = "submit"
                     st.rerun()
         
         # Button to go back to resume upload if needed
@@ -94,32 +108,22 @@ def main():
             st.rerun()
     
     elif current_step == 3:
-        # Placeholder for results section (Phase 4)
-        st.markdown("## Step 3: Results")
-        st.info("The results section will be implemented in the next phase.")
+        # Phase 4: Results and Status Tracking
         
-        # Display the customization task status if available
-        if st.session_state.job_description_state.get("customization_task_id"):
-            task_id = st.session_state.job_description_state["customization_task_id"]
-            status = st.session_state.job_description_state["customization_status"]
-            progress = st.session_state.job_description_state["customization_progress"]
-            
-            st.markdown(
-                f"""
-                <div class="status-card">
-                    <h3>Customization Status</h3>
-                    <p>Task ID: {task_id}</p>
-                    <p>Status: {status.capitalize()}</p>
-                    <p>Progress: {progress}%</p>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
+        # Check if customization is complete and results should be shown
+        if (st.session_state.job_description_state.get("customization_status") == "completed" and 
+            st.session_state.job_description_state.get("customization_view_results", False)):
+            # Show the results section
+            render_results_section()
+        else:
+            # Show the customization status section for tracking progress
+            render_customization_status_section()
         
-        # Button to go back to job description if needed
-        if st.button("← Back to Job Description"):
-            st.session_state.nav_state["current_step"] = 2
-            st.rerun()
+        # Button to go back to job description if needed (only if not viewing results)
+        if not st.session_state.job_description_state.get("customization_view_results", False):
+            if st.button("← Back to Job Description"):
+                st.session_state.nav_state["current_step"] = 2
+                st.rerun()
 
 # Apply custom styling with CSS
 st.markdown(
@@ -246,6 +250,93 @@ st.markdown(
         display: inline-block;
         margin-right: 0.5rem;
         margin-bottom: 0.5rem;
+    }
+    
+    /* Phase 4 styling additions */
+    .progress-container {
+        position: relative;
+        margin: 1.5rem 0;
+    }
+    
+    .progress-label {
+        position: absolute;
+        top: -1.25rem;
+        right: 0;
+        font-size: 0.875rem;
+        color: #4b5563;
+    }
+    
+    .progress-info {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+        color: #4b5563;
+    }
+    
+    .result-section {
+        margin: 1.5rem 0;
+    }
+    
+    .diff-container {
+        background-color: #f8fafc;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 1rem 0;
+        overflow-x: auto;
+        font-family: monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    
+    .diff-added {
+        background-color: #d4edda;
+    }
+    
+    .diff-removed {
+        background-color: #f8d7da;
+    }
+    
+    .diff-unchanged {
+        color: #6c757d;
+    }
+    
+    .result-action-button {
+        margin-top: 1rem;
+    }
+    
+    .result-section-title {
+        margin: 1.5rem 0 1rem 0;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 0.5rem;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
+    
+    .pulsing-text {
+        animation: pulse 1.5s infinite;
+    }
+    
+    .comparison-view {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    @media (min-width: 768px) {
+        .comparison-view {
+            flex-direction: row;
+        }
+    }
+    
+    .download-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 1rem 0;
     }
     </style>
     """, 

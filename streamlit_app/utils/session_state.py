@@ -38,8 +38,15 @@ def initialize_session_state():
             "customization_status": None,
             "customization_progress": 0,
             "customization_result": None,
-            "step": "input",  # input, preview, submitting, complete
+            "last_status_check": None,
+            "estimated_completion_time": None,
+            "customization_processing_time": None,
+            "customization_error": None,
+            "customization_message": None,
+            "customization_view_results": False,
+            "step": "input",  # input, preview, submitting, submit, complete
             "auto_preview": True,
+            "auto_refresh": True
         }
     
     # Customization options state (Phase 3)
@@ -76,6 +83,15 @@ def initialize_session_state():
             "current_step": 1,  # 1: Resume Upload, 2: Job Description, 3: Results
             "can_proceed": False,
             "steps_completed": [],
+        }
+    
+    # Error tracking state
+    if "error_state" not in st.session_state:
+        st.session_state.error_state = {
+            "last_error": None,
+            "error_count": 0,
+            "error_ids": [],
+            "retry_attempts": {}
         }
     
     # API configuration
