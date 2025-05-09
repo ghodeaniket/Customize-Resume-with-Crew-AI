@@ -43,9 +43,20 @@ def main():
     st.markdown(
         f"""
         <div class="step-indicator">
-            <div class="step {"active" if current_step == 1 else "completed" if 1 in st.session_state.nav_state["steps_completed"] else ""}">1. Upload Resume</div>
-            <div class="step {"active" if current_step == 2 else "completed" if 2 in st.session_state.nav_state["steps_completed"] else ""}">2. Job Description</div>
-            <div class="step {"active" if current_step == 3 else "completed" if 3 in st.session_state.nav_state["steps_completed"] else ""}">3. Results</div>
+            <div class="step-item {"active" if current_step == 1 else "completed" if 1 in st.session_state.nav_state["steps_completed"] else ""}">
+                <div class="step-number">1</div>
+                <div class="step-text">Upload Resume</div>
+            </div>
+            <div class="step-connector {"completed" if 1 in st.session_state.nav_state["steps_completed"] else ""}"></div>
+            <div class="step-item {"active" if current_step == 2 else "completed" if 2 in st.session_state.nav_state["steps_completed"] else ""}">
+                <div class="step-number">2</div>
+                <div class="step-text">Job Description</div>
+            </div>
+            <div class="step-connector {"completed" if 2 in st.session_state.nav_state["steps_completed"] else ""}"></div>
+            <div class="step-item {"active" if current_step == 3 else "completed" if 3 in st.session_state.nav_state["steps_completed"] else ""}">
+                <div class="step-number">3</div>
+                <div class="step-text">Results</div>
+            </div>
         </div>
         """, 
         unsafe_allow_html=True
@@ -125,29 +136,71 @@ st.markdown(
     
     .step-indicator {
         display: flex;
-        justify-content: space-between;
+        justify-content: center;
+        align-items: center;
         margin-bottom: 2rem;
-        background-color: #f0f2f6;
         padding: 1rem;
-        border-radius: 0.5rem;
+        position: relative;
     }
     
-    .step {
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
+    .step-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        z-index: 1;
+        width: 120px;
+    }
+    
+    .step-number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background-color: #e2e8f0;
         color: #6c757d;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
     }
     
-    .step.active {
+    .step-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        text-align: center;
+    }
+    
+    .step-connector {
+        height: 3px;
+        flex-grow: 1;
+        background-color: #e2e8f0;
+        margin: 0 0.5rem;
+        width: 80px;
+        margin-top: -45px;
+    }
+    
+    .step-item.active .step-number {
         background-color: #4263eb;
         color: white;
+    }
+    
+    .step-item.active .step-text {
+        color: #4263eb;
         font-weight: bold;
     }
     
-    .step.completed {
+    .step-item.completed .step-number {
         background-color: #a5b4fc;
         color: white;
-        font-weight: bold;
+    }
+    
+    .step-item.completed .step-text {
+        color: #4263eb;
+    }
+    
+    .step-connector.completed {
+        background-color: #a5b4fc;
     }
     
     .status-card {

@@ -8,16 +8,6 @@ def render_status_section():
     
     st.markdown("### Resume Processing Status")
     
-    # Create a status card
-    st.markdown(
-        """
-        <div class="status-card">
-        <h4>Status: Processing your resume...</h4>
-        </div>
-        """, 
-        unsafe_allow_html=True
-    )
-    
     # Get the task ID from session state
     task_id = st.session_state.upload_state["task_id"]
     filename = st.session_state.upload_state["filename"]

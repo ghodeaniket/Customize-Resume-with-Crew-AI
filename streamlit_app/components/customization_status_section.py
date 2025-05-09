@@ -143,7 +143,7 @@ def refresh_status(status_container, task_id):
         if response.get("status") == "completed":
             st.session_state.job_description_state["customization_processing_time"] = response.get("processing_time_ms", 0) / 1000 if response.get("processing_time_ms") else 0
             
-            # When completed, automatically retrieve results
+            # When completed, automatically retrieve results without requiring user interaction
             retrieve_customization_results(task_id)
         
         # If processing failed, capture the error
@@ -177,11 +177,13 @@ def retrieve_customization_results(task_id):
             # Update session state with response data - use response directly
             st.session_state.job_description_state["customization_result"] = response
             st.session_state.job_description_state["customization_view_results"] = True
-            st.success("Retrieved customization results successfully!")
             
             # Navigation - mark step 3 as completed
             if 3 not in st.session_state.nav_state["steps_completed"]:
                 st.session_state.nav_state["steps_completed"].append(3)
+            
+            # Force a rerun to show the results immediately
+            st.rerun()
                 
     except Exception as e:
         # Handle API errors

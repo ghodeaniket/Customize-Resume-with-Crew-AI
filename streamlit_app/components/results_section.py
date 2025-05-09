@@ -113,11 +113,32 @@ def render_results_section():
     tabs = st.tabs(["Comparison", "Analysis", "Export", "Feedback"])
     
     with tabs[0]:
-        # Get original resume text from session state
-        original_text = st.session_state.upload_state.get("extracted_text", "")
+        # Get original resume text from session state or fetch it if not present
+        original_text = st.session_state.upload_state.get("extracted_text")
+        resume_id = st.session_state.upload_state.get("task_id")
+        
+        # Fetch original resume text if not in session state
+        if (not original_text or len(original_text) == 0) and resume_id:
+            from services.api_service import get_resume_text
+            
+            try:
+                with st.spinner("Fetching original resume text..."):
+                    # Get the resume text from the API
+                    text_response = get_resume_text(resume_id)
+                    
+                    # Store and use the text
+                    original_text = text_response.get("text", "")
+                    st.session_state.upload_state["extracted_text"] = original_text
+                    
+                    if not original_text:
+                        st.warning("Could not retrieve original resume text. The comparison may be incomplete.")
+            except Exception as e:
+                st.error(f"Error retrieving original resume text: {str(e)}")
+                original_text = ""
         
         # Debug info
         with st.expander("Debug Information", expanded=False):
+            st.write("Resume ID:", resume_id)
             st.write("Original text available:", original_text is not None)
             st.write("Original text length:", len(original_text) if original_text else 0)
             st.write("Customized text available:", customized_text is not None)
