@@ -60,6 +60,9 @@ venv.bak/
 # Uploads directory
 uploads/
 
+# Customizations directory
+customizations/
+
 # Logs
 logs/
 *.log
