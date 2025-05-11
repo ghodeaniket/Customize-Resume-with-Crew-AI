@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     
     # File storage settings
     UPLOADS_DIR: str = os.path.join(os.getcwd(), "uploads")
+    CUSTOMIZATIONS_DIR: str = os.path.join(os.getcwd(), "customizations")
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10 MB
     
     # CORS settings
@@ -45,8 +46,9 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Ensure uploads directory exists
+# Ensure uploads and customizations directories exist
 Path(settings.UPLOADS_DIR).mkdir(parents=True, exist_ok=True)
+Path(settings.CUSTOMIZATIONS_DIR).mkdir(parents=True, exist_ok=True)
 
 
 def validate_environment() -> Dict[str, bool]:
@@ -85,10 +87,24 @@ def validate_environment() -> Dict[str, bool]:
         except Exception as e:
             logger.error(f"Failed to create uploads directory: {str(e)}")
     
+    # Check for customizations directory
+    customizations_dir_exists = Path(settings.CUSTOMIZATIONS_DIR).exists()
+    validation_results["customizations_dir_exists"] = customizations_dir_exists
+    
+    if not customizations_dir_exists:
+        logger.warning(f"Customizations directory {settings.CUSTOMIZATIONS_DIR} does not exist.")
+        try:
+            Path(settings.CUSTOMIZATIONS_DIR).mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created customizations directory: {settings.CUSTOMIZATIONS_DIR}")
+            validation_results["customizations_dir_exists"] = True
+        except Exception as e:
+            logger.error(f"Failed to create customizations directory: {str(e)}")
+    
     # Overall validation status
     validation_results["all_validated"] = all([
         validation_results["has_llm_api_key"],
-        validation_results["uploads_dir_exists"]
+        validation_results["uploads_dir_exists"],
+        validation_results["customizations_dir_exists"]
     ])
     
     # Print validation summary

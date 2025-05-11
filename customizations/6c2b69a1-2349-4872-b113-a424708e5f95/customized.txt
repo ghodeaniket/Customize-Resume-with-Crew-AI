@@ -1,0 +1,77 @@
+[Revised Resume]
+
+**ANIKET GHODE​​**
+Senior Engineering Manager  
+Email: aniket.ghode@gmail.com  
+Mobile: +91 9545506355  
+LinkedIn: linkedin.com/in/aniketghode  
+
+---
+
+**PROFESSIONAL SUMMARY**  
+Highly motivated Senior Engineering Leader with 14+ years of success in application and product development. Expertise in Agile methodologies, complex systems design, and leading cross-functional teams. Proven track record in delivering high-quality, large-scale projects across Customer Experience, E-commerce, Healthcare, and IoT domains while optimizing team processes and efficiency.
+
+---
+
+**PROFESSIONAL EXPERIENCE**
+
+**Senior Engineering Manager**  
+Birdeye India Pvt Ltd, India (Remote)  
+2023 – 2024  
+- **Technical Leadership & Innovation:**
+  - Improved time to market by optimizing the dev testing and QA regression cycle through automation testing tools.
+  - Elevated team productivity, achieving delivery one sprint sooner with a 30% efficiency hike without quality compromise.
+- **Cross-Functional Team Management:**
+  - Led React frontend and Java backend teams focusing on API gateway developments. 
+  - Enhanced team integration and collaboration to improve holistic product development.
+
+**Engineering Manager**  
+Plobal Apps, Pune  
+2022 – 2023  
+- **Project & Business Growth Leadership:**
+  - Managed resources and budgets to ensure timely project delivery. Boosted merchant platform users by 35% within six months, raising revenue by 50%.
+  - Implemented Agile and JIRA, improving sprint completion rate by 30%.
+  - Streamlined support operations, reducing turnaround time by 40%.
+
+**Software Development Manager**  
+Amadeus Software Labs, Bengaluru  
+2021 – 2022  
+- **Product Lifecycle and Quality Assurance:**
+  - Aligned engineering strategies with product roadmaps in collaboration with Scrum Masters.
+  - Championed diversity and innovation through hackathons and initiatives enhancing team morale and creativity.
+
+**Engineering Manager**  
+Quest Global (Mobiliya Technologies), Pune  
+2018 – 2021  
+- **Notable Projects:**
+  - Spearheaded Google Jacquard Project, boosting system performance by 25% with advanced WBS & HLD techniques.
+  - Improved Valvoline Fleet Strong project efficiency with MVVM-C pattern incorporations.
+
+**Senior Software Developer**  
+Silicus Technologies  
+2010 - 2017  
+- **Versatile Development Expertise:**
+  - Led development projects across mobile and web applications employing robust architecture patterns.
+  - Delivered iOS & Android applications renowned for enhancing end-user engagement and operational efficiency.
+
+---
+
+**CORE COMPETENCIES**  
+- Technical Leadership & Agile Methodologies
+- Sophisticated Systems Design & Solutions Orientation
+- Team Mentorship & High-Performance Delivery
+- Cross-Functional Collaboration & Strategic Planning
+
+**TECHNICAL SKILLS**  
+- **Languages & Technologies:** Java, Kotlin, JavaScript/TypeScript, React, AWS services
+- **Frameworks & Patterns:** MVC, MVP, MVVM, SOLID Principles
+- **Tools & Methodologies:** Git, Jira, CI/CD (Jenkins, Fastlane), Scrum, Kanban
+- **Familiar With:** DevOps, Machine Learning, TensorFlow, Docker
+
+**EDUCATION**  
+- Bachelor of Engineering (Information Technology), University of Pune, 2008  
+- Post Graduate Diploma in Wireless & Mobile Computing, CDAC, 2009
+
+---
+
+This resume version embodies Aniket Ghode's experience tailored to the job's specifications, focusing on relevant competences and aligning with industry-specific demands.

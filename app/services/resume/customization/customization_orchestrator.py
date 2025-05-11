@@ -8,6 +8,7 @@ from app.services.resume.base import BaseService
 from app.services.resume.storage_service import ResumeStorageService
 from app.services.resume.extraction_service import ResumeExtractionService
 from app.repositories.task_repository import TaskRepository
+from app.repositories.filesystem.customization_repository import CustomizationRepository
 from app.services.resume.customization.state_models import CustomizationState
 from app.services.resume.customization.crew_setup_service import CrewSetupService
 from app.services.resume.customization.job_analysis_service import JobAnalysisService
@@ -28,7 +29,8 @@ class CustomizationOrchestrator(BaseService[Dict[str, Any], str]):
         self,
         extraction_service: ResumeExtractionService,
         storage_service: ResumeStorageService,
-        task_repository: TaskRepository
+        task_repository: TaskRepository,
+        customization_repository: CustomizationRepository = None
     ):
         """Initialize the customization orchestrator.
         
@@ -36,10 +38,12 @@ class CustomizationOrchestrator(BaseService[Dict[str, Any], str]):
             extraction_service: Extraction service for resume text
             storage_service: Storage service for persistence  
             task_repository: Repository for task data access
+            customization_repository: Repository for customization results
         """
         self.extraction_service = extraction_service
         self.storage_service = storage_service
         self.task_repository = task_repository
+        self.customization_repository = customization_repository or CustomizationRepository()
         
         # Initialize sub-services
         self.crew_setup = CrewSetupService()
@@ -175,8 +179,11 @@ class CustomizationOrchestrator(BaseService[Dict[str, Any], str]):
                 state=state
             )
             
-            # Store the result
+            # Store the result in the original location
             await self.storage_service.save_result(task_id, optimized_resume)
+            
+            # Also save to the customizations directory
+            await self.customization_repository.save_customized_text(optimized_resume, task_id)
             
             # Mark task completed
             state.status = "completed"
@@ -317,7 +324,12 @@ class CustomizationOrchestrator(BaseService[Dict[str, Any], str]):
             
             # For completed tasks, include the result
             if task.get("status") == "completed":
-                result_content = await self.storage_service.get_result(id)
+                # First try to get from the customization repository
+                result_content = await self.customization_repository.get_customized_text(id)
+                
+                # If not found, fall back to the original storage location
+                if result_content is None:
+                    result_content = await self.storage_service.get_result(id)
                 
                 return {
                     "task_id": id,

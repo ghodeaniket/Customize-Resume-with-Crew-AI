@@ -8,6 +8,7 @@ from app.services.resume.customization.crew_execution_service import CrewExecuti
 from app.services.resume.customization.task_progress_service import TaskProgressService
 from app.services.resume.customization.state_management_service import StateManagementService
 from app.services.resume.customization.state_models import CustomizationState
+from app.repositories.filesystem.customization_repository import CustomizationRepository
 
 
 class WorkflowExecutionService:
@@ -18,7 +19,8 @@ class WorkflowExecutionService:
         crew_execution: CrewExecutionService,
         task_progress: TaskProgressService,
         state_manager: StateManagementService,
-        storage_service: ResumeStorageService
+        storage_service: ResumeStorageService,
+        customization_repository: CustomizationRepository = None
     ):
         """Initialize the workflow execution service.
         
@@ -27,11 +29,13 @@ class WorkflowExecutionService:
             task_progress: Task progress service
             state_manager: State management service
             storage_service: Storage service
+            customization_repository: Repository for customization results
         """
         self.crew_execution = crew_execution
         self.task_progress = task_progress
         self.state_manager = state_manager
         self.storage_service = storage_service
+        self.customization_repository = customization_repository or CustomizationRepository()
     
     async def get_resume_data(self, task_id: str) -> Optional[Dict[str, Any]]:
         """Get resume data by task ID.
@@ -155,8 +159,11 @@ class WorkflowExecutionService:
             start_time: Process start time
             state: Customization state
         """
-        # Store the result
+        # Store the result in the original location
         await self.storage_service.save_result(task_id, optimized_resume)
+        
+        # Also save to the customizations directory
+        await self.customization_repository.save_customized_text(optimized_resume, task_id)
         
         # Mark state as completed
         self.state_manager.mark_completed(state)
