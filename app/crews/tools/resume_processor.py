@@ -33,15 +33,30 @@ def create_resume_processor_tool(resume_service):
         
         try:
             # For CrewAI tools in FastAPI, we need to handle async operations carefully.
-            # Since CrewAI tools are synchronous and FastAPI runs in an async context,
-            # we create a new event loop for this operation.
-            loop = asyncio.new_event_loop()
+            # Check if there's an existing event loop first
             try:
-                # Run the async operation in the new event loop
-                resume_data = loop.run_until_complete(resume_service.get_resume_data(task_id))
-            finally:
-                # Always close the loop to avoid resource leaks
-                loop.close()
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If we're already in an async context, use asyncio.create_task
+                    logger.info(f"Using existing event loop for task ID: {task_id}")
+                    resume_data_future = asyncio.run_coroutine_threadsafe(
+                        resume_service.get_resume_data(task_id), loop
+                    )
+                    resume_data = resume_data_future.result(timeout=30)  # 30 second timeout
+                else:
+                    # If loop exists but is not running, run the coroutine directly
+                    logger.info(f"Using existing non-running loop for task ID: {task_id}")
+                    resume_data = loop.run_until_complete(resume_service.get_resume_data(task_id))
+            except RuntimeError:
+                # If there's no event loop, create a new one
+                logger.info(f"Creating new event loop for task ID: {task_id}")
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    resume_data = loop.run_until_complete(resume_service.get_resume_data(task_id))
+                finally:
+                    loop.close()
+                    asyncio.set_event_loop(None)
             
             if not resume_data:
                 logger.warning(f"Resume not found or processing not complete: {task_id}")
@@ -138,14 +153,30 @@ class ResumeProcessorTool(BaseTool):
         logger.info(f"ResumeProcessorTool processing resume with task ID: {task_id}")
         
         try:
-            # Create a new event loop for this synchronous method
-            loop = asyncio.new_event_loop()
+            # Check if there's an existing event loop first
             try:
-                resume_data = loop.run_until_complete(
-                    self.resume_service.get_resume_data(task_id)
-                )
-            finally:
-                loop.close()
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If we're already in an async context, use asyncio.run_coroutine_threadsafe
+                    logger.info(f"Using existing event loop for task ID: {task_id}")
+                    resume_data_future = asyncio.run_coroutine_threadsafe(
+                        self.resume_service.get_resume_data(task_id), loop
+                    )
+                    resume_data = resume_data_future.result(timeout=30)  # 30 second timeout
+                else:
+                    # If loop exists but is not running, run the coroutine directly
+                    logger.info(f"Using existing non-running loop for task ID: {task_id}")
+                    resume_data = loop.run_until_complete(self.resume_service.get_resume_data(task_id))
+            except RuntimeError:
+                # If there's no event loop, create a new one
+                logger.info(f"Creating new event loop for task ID: {task_id}")
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    resume_data = loop.run_until_complete(self.resume_service.get_resume_data(task_id))
+                finally:
+                    loop.close()
+                    asyncio.set_event_loop(None)
             
             if not resume_data:
                 logger.warning(f"Resume not found or processing not complete: {task_id}")
